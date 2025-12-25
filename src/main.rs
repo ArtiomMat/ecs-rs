@@ -1,6 +1,7 @@
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::hash::Hash;
+use std::ops::Deref;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 struct Entity {
@@ -68,24 +69,43 @@ impl State {
         self.entities.contains_key(&id)
     }
 
-    pub fn get_entity_component<C: 'static>(
-        &self,
-        entity_id: EntityId,
-    ) -> Result<&C, Error<C>> {
+    pub fn get_entity_component<C: 'static>(&self, entity_id: EntityId) -> Result<&C, Error<C>> {
         if !self.is_entity_valid(entity_id) {
             return Err(Error::InvalidEntityId(entity_id));
         }
 
         let entity = self.entities.get(&entity_id).unwrap();
-        let component_index = entity
+        let component_index = *entity
             .indices
             .get(&Self::component_id_for::<C>())
             .ok_or(Error::InvalidComponent)?;
-        
-        let components = self.get_component_vec::<C>()
+
+        let components = self
+            .get_component_vec::<C>()
             .ok_or(Error::InvalidComponent)?;
 
-        Ok(&components[*component_index].data)
+        Ok(&components[component_index].data)
+    }
+
+    pub fn get_entity_component_mut<C: 'static>(
+        &mut self,
+        entity_id: EntityId,
+    ) -> Result<&mut C, Error<C>> {
+        if !self.is_entity_valid(entity_id) {
+            return Err(Error::InvalidEntityId(entity_id));
+        }
+
+        let entity = self.entities.get(&entity_id).unwrap();
+        let component_index = *entity
+            .indices
+            .get(&Self::component_id_for::<C>())
+            .ok_or(Error::InvalidComponent)?;
+
+        let components = self
+            .get_component_vec_mut::<C>()
+            .ok_or(Error::InvalidComponent)?;
+
+        Ok(&mut components[component_index].data)
     }
 
     fn add_component_to_entity<C: 'static>(
@@ -144,8 +164,6 @@ impl State {
     }
 }
 
-trait Component {}
-
 #[derive(Debug)]
 struct PositionComponent {
     p: [i32; 3],
@@ -167,5 +185,15 @@ fn main() {
         .add_component_to_entity(player_id, PositionComponent { p: [1, 2, 3] })
         .unwrap();
 
-    println!("{}", world.get_entity_component::<HealthComponent>(player_id).unwrap().health);
+    world
+        .get_entity_component_mut::<HealthComponent>(player_id)
+        .unwrap()
+        .health = 67;
+    println!(
+        "{}",
+        world
+            .get_entity_component_mut::<HealthComponent>(player_id)
+            .unwrap()
+            .health
+    );
 }
