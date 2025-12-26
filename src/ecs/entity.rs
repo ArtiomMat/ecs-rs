@@ -1,10 +1,5 @@
 use std::hash::Hash;
 
-// struct Entity {
-//     /// Indices of the
-//     component_indices: HashMap<TypeId, usize>,
-// }
-
 /// Comparing it can be useful sometimes:
 ///
 /// - `a > b` means that `a` was allocated after `b`.
