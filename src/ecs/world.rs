@@ -154,15 +154,9 @@ impl World {
         Ok(entity_component_data)
     }
 
-    fn new_invalid_component_err<C: 'static>() -> Error {
-        Error::InvalidWorldComponent(std::any::type_name::<C>())
-    }
-
-    fn component_id_for<C: 'static>() -> TypeId {
-        TypeId::of::<Box<Vec<C>>>()
-    }
-
-    fn ensure_component_registered<C: 'static>(&mut self) -> bool {
+    /// Returns `true` if the component was already registered.
+    /// Otherwise will register the component.
+    pub fn ensure_component_registered<C: 'static>(&mut self) -> bool {
         let component_id = Self::component_id_for::<C>();
         if self.component_storage_vecs.contains_key(&component_id) {
             true
@@ -171,6 +165,14 @@ impl World {
                 .insert(component_id, Box::new(ComponentsStorage::<C>::new()));
             false
         }
+    }
+
+    fn new_invalid_component_err<C: 'static>() -> Error {
+        Error::InvalidWorldComponent(std::any::type_name::<C>())
+    }
+
+    fn component_id_for<C: 'static>() -> TypeId {
+        TypeId::of::<Box<Vec<C>>>()
     }
 
     fn get_component_storage<C: 'static>(&self) -> Option<&ComponentsStorage<C>> {
