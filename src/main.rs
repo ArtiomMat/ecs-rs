@@ -24,26 +24,23 @@ struct State {
 }
 
 #[derive(Debug)]
-enum Error<C> {
+enum Error {
     InvalidEntityId(EntityId),
-    InvalidComponent,
-
-    _FakeUsageOfC(C),
+    InvalidComponent(&'static str),
 }
 
-impl<C> std::fmt::Display for Error<C> {
+impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Error::InvalidEntityId(entity_id) => write!(f, "Entity {} is invalid", entity_id.0),
-            Error::InvalidComponent => {
-                write!(f, "Component {} is invalid", std::any::type_name::<C>())
+            Error::InvalidComponent(name) => {
+                write!(f, "Component {} is invalid", name)
             }
-            Error::_FakeUsageOfC(_) => unreachable!(),
         }
     }
 }
 
-impl<C: std::fmt::Debug> std::error::Error for Error<C> {}
+impl std::error::Error for Error {}
 
 impl State {
     pub fn new() -> Self {
@@ -69,7 +66,7 @@ impl State {
         self.entities.contains_key(&id)
     }
 
-    pub fn get_entity_component<C: 'static>(&self, entity_id: EntityId) -> Result<&C, Error<C>> {
+    pub fn get_entity_component<C: 'static>(&self, entity_id: EntityId) -> Result<&C, Error> {
         if !self.is_entity_valid(entity_id) {
             return Err(Error::InvalidEntityId(entity_id));
         }
@@ -78,11 +75,11 @@ impl State {
         let component_index = *entity
             .indices
             .get(&Self::component_id_for::<C>())
-            .ok_or(Error::InvalidComponent)?;
+            .ok_or(Self::new_invalid_component_err::<C>())?;
 
         let components = self
             .get_component_vec::<C>()
-            .ok_or(Error::InvalidComponent)?;
+            .ok_or(Self::new_invalid_component_err::<C>())?;
 
         Ok(&components[component_index].data)
     }
@@ -90,7 +87,7 @@ impl State {
     pub fn get_entity_component_mut<C: 'static>(
         &mut self,
         entity_id: EntityId,
-    ) -> Result<&mut C, Error<C>> {
+    ) -> Result<&mut C, Error> {
         if !self.is_entity_valid(entity_id) {
             return Err(Error::InvalidEntityId(entity_id));
         }
@@ -99,20 +96,24 @@ impl State {
         let component_index = *entity
             .indices
             .get(&Self::component_id_for::<C>())
-            .ok_or(Error::InvalidComponent)?;
+            .ok_or(Self::new_invalid_component_err::<C>())?;
 
         let components = self
             .get_component_vec_mut::<C>()
-            .ok_or(Error::InvalidComponent)?;
+            .ok_or(Self::new_invalid_component_err::<C>())?;
 
         Ok(&mut components[component_index].data)
+    }
+
+    fn new_invalid_component_err<C: 'static>() -> Error {
+        Error::InvalidComponent(std::any::type_name::<C>())
     }
 
     fn add_entity_component<C: 'static>(
         &mut self,
         entity_id: EntityId,
         data: C,
-    ) -> Result<(), Error<C>> {
+    ) -> Result<(), Error> {
         if !self.is_entity_valid(entity_id) {
             return Err(Error::InvalidEntityId(entity_id));
         }
@@ -136,7 +137,7 @@ impl State {
         Ok(())
     }
 
-    fn remove_entity_component<C: 'static>(&mut self, entity_id: EntityId) -> Result<C, Error<C>> {
+    fn remove_entity_component<C: 'static>(&mut self, entity_id: EntityId) -> Result<C, Error> {
         if !self.is_entity_valid(entity_id) {
             return Err(Error::InvalidEntityId(entity_id));
         }
@@ -145,11 +146,11 @@ impl State {
         let component_index = entity
             .indices
             .remove(&Self::component_id_for::<C>())
-            .ok_or(Error::InvalidComponent)?;
+            .ok_or(Self::new_invalid_component_err::<C>())?;
 
         let components = self
             .get_component_vec_mut::<C>()
-            .ok_or(Error::InvalidComponent)?;
+            .ok_or(Self::new_invalid_component_err::<C>())?;
         let mut last_component = components
             .pop()
             .expect("There can't be no components, because there is an entity");
@@ -192,12 +193,10 @@ impl State {
     }
 }
 
-#[derive(Debug)]
 struct PositionComponent {
     p: [i32; 3],
 }
 
-#[derive(Debug)]
 struct HealthComponent {
     health: i32,
 }
@@ -254,6 +253,15 @@ mod tests {
                 .remove_entity_component::<HealthComponent>(player_id)
                 .is_err()
         );
+
+        println!(
+            "{}",
+            world
+                .remove_entity_component::<HealthComponent>(player_id)
+                .err()
+                .unwrap()
+        );
+
         assert!(
             world
                 .get_entity_component::<HealthComponent>(player_id)
