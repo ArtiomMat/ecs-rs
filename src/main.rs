@@ -159,7 +159,9 @@ impl World {
 
         let component_index = component_storage.component_vec.len();
 
-        component_storage.component_vec.push((entity_id, component_data));
+        component_storage
+            .component_vec
+            .push((entity_id, component_data));
         component_storage
             .entity_component_map
             .insert(entity_id, component_index);
@@ -187,24 +189,28 @@ impl World {
             .pop()
             .expect("There can't be no components, because there is an entity");
 
-        let entity_component_data = if entity_component_index == component_storage.component_vec.len() {
-            // The last the popped component is what we are looking for
-            popped_component.1
-        } else {
-            // We use the popped component to replace the entity's one.
-            component_storage.entity_component_map.remove(&entity_id);
-            
-            // TODO: This is untested
-            // Ensure to update the entity component map to the new index
-            if let Some(index) = component_storage.entity_component_map.get_mut(&popped_component.0) {
-                *index = entity_component_index
-            }
+        let entity_component_data =
+            if entity_component_index == component_storage.component_vec.len() {
+                // The last the popped component is what we are looking for
+                popped_component.1
+            } else {
+                // We use the popped component to replace the entity's one.
+                component_storage.entity_component_map.remove(&entity_id);
 
-            std::mem::replace(
-                &mut component_storage.component_vec[entity_component_index],
-                popped_component,
-            ).1
-        };
+                // Ensure to update the entity component map to the new index
+                if let Some(index) = component_storage
+                    .entity_component_map
+                    .get_mut(&popped_component.0)
+                {
+                    *index = entity_component_index
+                }
+
+                std::mem::replace(
+                    &mut component_storage.component_vec[entity_component_index],
+                    popped_component,
+                )
+                .1
+            };
 
         component_storage.entity_component_map.remove(&entity_id);
         Ok(entity_component_data)
@@ -242,53 +248,131 @@ impl World {
     }
 }
 
-struct PositionComponent {
-    p: [i32; 3],
-}
-
-struct HealthComponent {
-    health: i32,
-}
-
-struct PlayerTag;
-
 // src/lib.rs (tests section)
 #[cfg(test)] // Only compile when running tests
 mod tests {
     use super::*; // Import items from the parent module
 
-    #[test] // Marks this function as a test
+    struct PositionComponent([i32; 3]);
+
+    struct HealthComponent(i32);
+
+    struct PlayerTag;
+    /// Ensures entities don't get mixed when removing and adding components.
+    #[test]
+    fn multiple_entities_not_mixed() {
+        let mut world = World::new();
+
+        let a = world.create_entity();
+        let b = world.create_entity();
+        let c = world.create_entity();
+
+        world
+            .add_entity_component(c, PositionComponent([2, 2, 2]))
+            .unwrap();
+        world
+            .add_entity_component(a, PositionComponent([0, 0, 0]))
+            .unwrap();
+        world
+            .add_entity_component(b, PositionComponent([1, 1, 1]))
+            .unwrap();
+
+        world.add_entity_component(b, PlayerTag).unwrap();
+        world.add_entity_component(a, PlayerTag).unwrap();
+
+        world.add_entity_component(b, HealthComponent(1)).unwrap();
+        world.add_entity_component(c, HealthComponent(2)).unwrap();
+        world.add_entity_component(a, HealthComponent(0)).unwrap();
+
+        // First let's remove the last component that was added in HealtComponent
+        assert_eq!(
+            0,
+            world
+                .remove_entity_component::<HealthComponent>(a)
+                .unwrap()
+                .0
+        );
+        // Then remove the first that was added.
+        assert_eq!(
+            1,
+            world
+                .remove_entity_component::<HealthComponent>(b)
+                .unwrap()
+                .0
+        );
+        // Then remove the last remaining.
+        assert_eq!(
+            2,
+            world
+                .remove_entity_component::<HealthComponent>(c)
+                .unwrap()
+                .0
+        );
+
+
+        // First let's remove the first component that was added in HealtComponent
+        assert_eq!(
+            [2, 2, 2],
+            world
+                .remove_entity_component::<PositionComponent>(c)
+                .unwrap()
+                .0
+        );
+        // Then the second that was added which is now the first.
+        assert_eq!(
+            [0, 0, 0],
+            world
+                .remove_entity_component::<PositionComponent>(a)
+                .unwrap()
+                .0
+        );
+        // Then remove the last remaining.
+        assert_eq!(
+            [1, 1, 1],
+            world
+                .remove_entity_component::<PositionComponent>(b)
+                .unwrap()
+                .0
+        );
+    }
+
+    #[test]
     fn single_entity_component_sanity() {
         let mut world = World::new();
 
         let player_id = world.create_entity();
         world
-            .add_entity_component(player_id, HealthComponent { health: 100 })
+            .add_entity_component(player_id, HealthComponent(100))
             .unwrap();
         world
-            .add_entity_component(player_id, PositionComponent { p: [1, 2, 3] })
+            .add_entity_component(player_id, PositionComponent([1, 2, 3]))
             .unwrap();
         world.add_entity_component(player_id, PlayerTag).unwrap();
+
+        assert!(
+            world.add_entity_component(player_id, PlayerTag).is_err(),
+            "Adding again is an error."
+        );
 
         assert_eq!(
             100,
             world
                 .get_entity_component::<HealthComponent>(player_id)
                 .unwrap()
-                .health
+                .0
         );
 
         world
             .get_entity_component_mut::<HealthComponent>(player_id)
             .unwrap()
-            .health = 67;
+            .0 = 67;
 
         assert_eq!(
             67,
             world
                 .get_entity_component::<HealthComponent>(player_id)
                 .unwrap()
-                .health
+                .0
         );
 
         assert_eq!(
@@ -296,7 +380,7 @@ mod tests {
             world
                 .remove_entity_component::<HealthComponent>(player_id)
                 .unwrap()
-                .health
+                .0
         );
 
         assert!(
@@ -323,7 +407,7 @@ mod tests {
             world
                 .get_entity_component::<PositionComponent>(player_id)
                 .unwrap()
-                .p
+                .0
         );
     }
 }
