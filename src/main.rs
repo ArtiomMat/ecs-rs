@@ -13,7 +13,7 @@ struct Entity {
 struct EntityId(usize);
 
 struct ComponentWrapper<T> {
-    entity: EntityId,
+    entity_id: EntityId,
     data: T,
 }
 
@@ -108,7 +108,7 @@ impl State {
         Ok(&mut components[component_index].data)
     }
 
-    fn add_component_to_entity<C: 'static>(
+    fn add_entity_component<C: 'static>(
         &mut self,
         entity_id: EntityId,
         data: C,
@@ -122,7 +122,7 @@ impl State {
             .get_component_vec_mut::<C>()
             .expect("The component was supposed to be added");
         components.push(ComponentWrapper {
-            entity: entity_id,
+            entity_id,
             data: data,
         });
         let new_components_len = components.len();
@@ -136,6 +136,34 @@ impl State {
         Ok(())
     }
 
+    fn remove_entity_component<C: 'static>(&mut self, entity_id: EntityId) -> Result<C, Error<C>> {
+        if !self.is_entity_valid(entity_id) {
+            return Err(Error::InvalidEntityId(entity_id));
+        }
+
+        let entity = self.entities.get_mut(&entity_id).unwrap();
+        let component_index = entity
+            .indices
+            .remove(&Self::component_id_for::<C>())
+            .ok_or(Error::InvalidComponent)?;
+
+        let components = self
+            .get_component_vec_mut::<C>()
+            .ok_or(Error::InvalidComponent)?;
+        let mut last_component = components
+            .pop()
+            .expect("There can't be no components, because there is an entity");
+
+        // If we already popped the entity as last there is no
+        // need to do anything else, otherwise below is some
+        // code below that replaces the entity's component with this
+        // popped one.
+        if last_component.entity_id != entity_id {
+            std::mem::swap(&mut components[component_index], &mut last_component);
+        }
+
+        Ok(last_component.data)
+    }
     fn component_id_for<C: 'static>() -> TypeId {
         TypeId::of::<Box<Vec<ComponentWrapper<C>>>>()
     }
@@ -174,26 +202,71 @@ struct HealthComponent {
     health: i32,
 }
 
-fn main() {
-    let mut world = State::new();
+// src/lib.rs (tests section)
+#[cfg(test)] // Only compile when running tests
+mod tests {
+    use super::*; // Import items from the parent module
 
-    let player_id = world.create_entity();
-    world
-        .add_component_to_entity(player_id, HealthComponent { health: 100 })
-        .unwrap();
-    world
-        .add_component_to_entity(player_id, PositionComponent { p: [1, 2, 3] })
-        .unwrap();
+    #[test] // Marks this function as a test
+    fn single_entity_component_sanity() {
+        let mut world = State::new();
 
-    world
-        .get_entity_component_mut::<HealthComponent>(player_id)
-        .unwrap()
-        .health = 67;
-    println!(
-        "{}",
+        let player_id = world.create_entity();
+        world
+            .add_entity_component(player_id, HealthComponent { health: 100 })
+            .unwrap();
+
+        assert_eq!(
+            100,
+            world
+                .get_entity_component::<HealthComponent>(player_id)
+                .unwrap()
+                .health
+        );
+
+        world
+            .add_entity_component(player_id, PositionComponent { p: [1, 2, 3] })
+            .unwrap();
+
         world
             .get_entity_component_mut::<HealthComponent>(player_id)
             .unwrap()
-            .health
-    );
+            .health = 67;
+
+        assert_eq!(
+            67,
+            world
+                .get_entity_component::<HealthComponent>(player_id)
+                .unwrap()
+                .health
+        );
+
+        assert_eq!(
+            67,
+            world
+                .remove_entity_component::<HealthComponent>(player_id)
+                .unwrap()
+                .health
+        );
+
+        assert!(
+            world
+                .remove_entity_component::<HealthComponent>(player_id)
+                .is_err()
+        );
+        assert!(
+            world
+                .get_entity_component::<HealthComponent>(player_id)
+                .is_err()
+        );
+        assert_eq!(
+            [1, 2, 3],
+            world
+                .get_entity_component::<PositionComponent>(player_id)
+                .unwrap()
+                .p
+        );
+    }
 }
+
+fn main() {}
