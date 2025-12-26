@@ -309,7 +309,6 @@ mod tests {
                 .0
         );
 
-
         // First let's remove the first component that was added in HealtComponent
         assert_eq!(
             [2, 2, 2],
