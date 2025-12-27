@@ -1,10 +1,10 @@
 pub use error::*;
-pub use entity::*;
+pub use id_types::*;
 pub use component_storage::*;
 pub use world::*;
 
 mod error;
-mod entity;
+mod id_types;
 mod component_storage;
 mod world;
 

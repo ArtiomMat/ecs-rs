@@ -1,7 +1,11 @@
 use std::collections::HashMap;
 
-use super::entity::EntityId;
+use super::id_types::EntityId;
 
+pub enum ComponentStorageType {
+    SparseSet,
+    Archetypes,
+}
 
 pub(super) struct ComponentsStorage<C: 'static> {
     pub(super) component_vec: Vec<(EntityId, C)>,

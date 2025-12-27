@@ -1,10 +1,10 @@
-use super::entity::EntityId;
+use super::id_types::EntityId;
 
 #[derive(Debug)]
 pub enum Error {
     InvalidEntityId(EntityId),
     InvalidWorldComponent(&'static str),
-    InvalidEntityComponent(&'static str),
+    InvalidEntityComponent(&'static str, EntityId),
     ComponentAlreadyAdded(&'static str, EntityId),
 }
 

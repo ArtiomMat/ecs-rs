@@ -2,7 +2,7 @@ use std::any::{Any, TypeId};
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use super::entity::EntityId;
+use super::id_types::EntityId;
 use super::error::Error;
 use super::component_storage::ComponentsStorage;
 
