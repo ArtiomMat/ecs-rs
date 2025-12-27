@@ -2,12 +2,12 @@ use std::any::{Any, TypeId};
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use super::id_types::EntityId;
+use super::id_types::{EntityId, ComponentId};
 use super::error::Error;
 use super::component_storage::ComponentsStorage;
 
 pub struct World {
-    component_storage_vecs: HashMap<TypeId, Box<dyn Any>>,
+    component_storage_vecs: HashMap<ComponentId, Box<dyn Any>>,
     // component_vecs: HashMap<TypeId, Box<dyn Any>>,
     // entities: HashMap<EntityId, Entity>,
     entity_validity_set: HashSet<EntityId>,
@@ -157,7 +157,7 @@ impl World {
     /// Returns `true` if the component was already registered.
     /// Otherwise will register the component.
     pub fn ensure_component_registered<C: 'static>(&mut self) -> bool {
-        let component_id = TypeId::of::<C>();
+        let component_id = ComponentId::of::<C>();
         if self.component_storage_vecs.contains_key(&component_id) {
             true
         } else {
@@ -169,13 +169,13 @@ impl World {
 
     fn get_component_storage<C: 'static>(&self) -> Option<&ComponentsStorage<C>> {
         self.component_storage_vecs
-            .get(&TypeId::of::<C>())
+            .get(&ComponentId::of::<C>())
             .and_then(|cs| (*cs).downcast_ref::<ComponentsStorage<C>>())
     }
 
     fn get_component_storage_mut<C: 'static>(&mut self) -> Option<&mut ComponentsStorage<C>> {
         self.component_storage_vecs
-            .get_mut(&TypeId::of::<C>())
+            .get_mut(&ComponentId::of::<C>())
             .and_then(|cs| (*cs).downcast_mut::<ComponentsStorage<C>>())
     }
 }
