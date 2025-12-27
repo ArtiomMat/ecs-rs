@@ -40,12 +40,12 @@ impl World {
 
         let component_storage = self
             .get_component_storage::<C>()
-            .ok_or(Self::new_invalid_component_err::<C>())?;
+            .ok_or(Error::InvalidWorldComponent(std::any::type_name::<C>()))?;
 
         let component_index = *component_storage
             .entity_component_map
             .get(&entity_id)
-            .ok_or(Error::InvalidEntityComponent(std::any::type_name::<C>()))?;
+            .ok_or(Error::InvalidEntityComponent(std::any::type_name::<C>(), entity_id))?;
 
         Ok(&component_storage.component_vec[component_index].1)
     }
@@ -60,12 +60,12 @@ impl World {
 
         let component_storage = self
             .get_component_storage_mut::<C>()
-            .ok_or(Self::new_invalid_component_err::<C>())?;
+            .ok_or(Error::InvalidWorldComponent(std::any::type_name::<C>()))?;
 
         let component_index = *component_storage
             .entity_component_map
             .get(&entity_id)
-            .ok_or(Error::InvalidEntityComponent(std::any::type_name::<C>()))?;
+            .ok_or(Error::InvalidEntityComponent(std::any::type_name::<C>(), entity_id))?;
 
         Ok(&mut component_storage.component_vec[component_index].1)
     }
@@ -82,7 +82,7 @@ impl World {
         self.ensure_component_registered::<C>();
         let component_storage = self
             .get_component_storage_mut::<C>()
-            .ok_or(Self::new_invalid_component_err::<C>())?;
+            .ok_or(Error::InvalidWorldComponent(std::any::type_name::<C>()))?;
 
         // Already added?
         if component_storage
@@ -114,12 +114,12 @@ impl World {
 
         let component_storage = self
             .get_component_storage_mut::<C>()
-            .ok_or(Self::new_invalid_component_err::<C>())?;
+            .ok_or(Error::InvalidWorldComponent(std::any::type_name::<C>()))?;
 
         let entity_component_index = *component_storage
             .entity_component_map
             .get(&entity_id)
-            .ok_or(Error::InvalidEntityComponent(std::any::type_name::<C>()))?;
+            .ok_or(Error::InvalidEntityComponent(std::any::type_name::<C>(), entity_id))?;
 
         // Has a different meaning depending on whether it's the entity's component.
         let popped_component = component_storage
@@ -157,7 +157,7 @@ impl World {
     /// Returns `true` if the component was already registered.
     /// Otherwise will register the component.
     pub fn ensure_component_registered<C: 'static>(&mut self) -> bool {
-        let component_id = Self::component_id_for::<C>();
+        let component_id = TypeId::of::<C>();
         if self.component_storage_vecs.contains_key(&component_id) {
             true
         } else {
@@ -167,23 +167,15 @@ impl World {
         }
     }
 
-    fn new_invalid_component_err<C: 'static>() -> Error {
-        Error::InvalidWorldComponent(std::any::type_name::<C>())
-    }
-
-    fn component_id_for<C: 'static>() -> TypeId {
-        TypeId::of::<Box<Vec<C>>>()
-    }
-
     fn get_component_storage<C: 'static>(&self) -> Option<&ComponentsStorage<C>> {
         self.component_storage_vecs
-            .get(&Self::component_id_for::<C>())
+            .get(&TypeId::of::<C>())
             .and_then(|cs| (*cs).downcast_ref::<ComponentsStorage<C>>())
     }
 
     fn get_component_storage_mut<C: 'static>(&mut self) -> Option<&mut ComponentsStorage<C>> {
         self.component_storage_vecs
-            .get_mut(&Self::component_id_for::<C>())
+            .get_mut(&TypeId::of::<C>())
             .and_then(|cs| (*cs).downcast_mut::<ComponentsStorage<C>>())
     }
 }

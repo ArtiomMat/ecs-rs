@@ -19,8 +19,8 @@ impl std::fmt::Display for Error {
                     name
                 )
             }
-            Error::InvalidEntityComponent(name) => {
-                write!(f, "Component {} was never registered to the entity", name)
+            Error::InvalidEntityComponent(name, entity_id) => {
+                write!(f, "Component {} was never registered to the entity {}", name, entity_id.0)
             }
             Error::ComponentAlreadyAdded(name, entity_id) => {
                 write!(
