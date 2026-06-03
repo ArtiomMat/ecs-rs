@@ -2,11 +2,16 @@ pub use error::*;
 pub use id_types::*;
 pub use component_storage::*;
 pub use world::*;
+pub use query::*;
 
-mod error;
-mod id_types;
-mod component_storage;
-mod world;
+pub mod error;
+pub mod id_types;
+pub mod component_storage;
+pub mod world;
+pub mod query;
+mod world_backend;
+mod world_backends;
+mod bitvec;
 
 #[cfg(test)]
 mod tests;

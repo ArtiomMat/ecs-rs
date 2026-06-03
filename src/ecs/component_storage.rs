@@ -1,23 +1,117 @@
 use std::collections::HashMap;
 
+use crate::ecs::bitvec::BitVec;
+
+use super::error::Error;
 use super::id_types::EntityId;
 
-pub enum ComponentStorageType {
+pub enum ComponentStorageStrategy {
     SparseSet,
     Archetypes,
 }
 
 pub(super) struct ComponentsStorage<C: 'static> {
-    pub(super) component_vec: Vec<(EntityId, C)>,
-    /// A map between entity IDs and their respective component index
-    pub(super) entity_component_map: HashMap<EntityId, usize>,
+    /// A vector of pairs of entity id and the respective component data
+    pub(super) components: Vec<(EntityId, C)>,
+    /// A map between entity IDs and their respective component index in `component_vec`
+    pub(super) entity_id_to_component: HashMap<EntityId, usize>,
 }
 
 impl<C> ComponentsStorage<C> {
     pub(super) fn new() -> Self {
         Self {
-            component_vec: Vec::new(),
-            entity_component_map: HashMap::new(),
+            components: Vec::new(),
+            entity_id_to_component: HashMap::new(),
         }
     }
+
+    /// Get the component that belongs to this entity.
+    pub(super) fn get_entity_component(&self, entity_id: EntityId) -> &C {
+        &(self.components[self.entity_id_to_component[&entity_id]].1)
+    }
+
+    /// Mutable [`Self::get_entity_component`]
+    pub(super) fn get_entity_component_mut(&mut self, entity_id: EntityId) -> &mut C {
+        &mut (self.components[self.entity_id_to_component[&entity_id]].1)
+    }
+
+    /// Add the `component` to this entity.
+    pub(super) fn add_entity_component(&mut self, entity_id: EntityId, component: C) -> Result<(), Error> {
+        if self
+            .entity_id_to_component
+            .contains_key(&entity_id)
+        {
+            return Err(Error::ComponentAlreadyAdded(
+                std::any::type_name::<C>(),
+                entity_id,
+            ));
+        }
+
+        let component_index = self.components.len();
+
+        self
+            .components
+            .push((entity_id, component));
+        self
+            .entity_id_to_component
+            .insert(entity_id, component_index);
+
+        Ok(())
+    }
+
+    pub(super) fn remove_entity_component(&mut self, entity_id: EntityId) -> Result<C, Error> {
+        let entity_component_index = *self
+            .entity_id_to_component
+            .get(&entity_id)
+            .ok_or(Error::InvalidEntityComponent(
+                std::any::type_name::<C>(),
+                entity_id,
+            ))?;
+
+        let popped_component = self
+            .components
+            .pop()
+            .expect("There can't be no components, because there is an entity");
+
+        // Remove from the id-to-component map
+        self.entity_id_to_component.remove(&entity_id);
+        
+        let entity_component_data =
+            if entity_component_index == self.components.len() {
+                // The popped component is of the last entity. No need for swaps.
+                popped_component.1
+            } else {
+                // Otherwise do a swap with the 
+
+                // Update the entity component map to the new index
+                if let Some(index) = self
+                    .entity_id_to_component
+                    .get_mut(&popped_component.0)
+                {
+                    *index = entity_component_index
+                }
+
+                std::mem::replace(
+                    &mut self.components[entity_component_index],
+                    popped_component,
+                )
+                .1
+            };
+
+        self.entity_id_to_component.remove(&entity_id);
+        Ok(entity_component_data)
+    }
+
+    pub(super) fn get_entity_component_index(&self, entity_id: EntityId) -> Result<usize, Error> {
+        let component_index = *self
+            .entity_id_to_component
+            .get(&entity_id)
+            .ok_or(Error::InvalidEntityComponent(
+                std::any::type_name::<C>(),
+                entity_id,
+            ))?;
+
+        Ok(component_index)
+    }
+
 }
