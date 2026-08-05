@@ -1,60 +1,48 @@
-use std::error::Error;
+use std::cell::{Ref, RefMut};
 
-mod ecs;
+use crate::{inspect::Inspect, system_runner::run_system, type_map::TypeMap};
 
+mod type_map;
+mod inspect;
+mod system_runner;
+
+#[derive(Debug)]
 struct Health(f32);
-struct Transform {
-    position: [f32; 3],
-    rotation: [f32; 3],
-}
-struct Glyph(char);
 
-struct PlayerTag;
-struct EnemyTag;
-
-struct Animal {
-
+#[derive(Debug)]
+struct Position {
+    x: f32,
+    y: f32,
+    z: f32
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
-    let mut world = ecs::World::new();
+fn main() {
+    let mut map = TypeMap::new();
+    map.insert(Health(100.0));
+    map.insert(Position { x: 1.0, y: 2.0, z: 3.0 });
 
-    world.add_component_storage::<Health>();
-    world.add_component_storage::<Transform>();
-    world.add_component_storage::<Glyph>();
-    world.add_component_storage::<PlayerTag>();
-    world.add_component_storage::<EnemyTag>();
-
-    let player = world.create_entity();
-    world.add_entity_component(player, PlayerTag)?;
-    world.add_entity_component(player, Health(1.0))?;
-    world.add_entity_component(
-        player,
-        Transform {
-            position: [1.0, 2.0, 3.0],
-            rotation: [0.0, 0.0, 0.0],
-        },
-    )?;
-
-    for i in 0..10 {
-        let enemy = world.create_entity();
-        world.add_entity_component(enemy, EnemyTag)?;
-        world.add_entity_component(enemy, Health(1.0))?;
-        world.add_entity_component(
-            enemy,
-            Transform {
-                position: [1.0, 2.0, 3.0],
-                rotation: [0.0, 0.0, 0.0],
-            },
-        )?;
-    }    
-
-    // let query = Query::<(&mut Health, &mut Transform)>::new(&mut world);
-    // let filtered_query = FilterQuery::<(&mut Net, &Transform), (With<PlayerTag>, Dirty<Transform>)>::new(&mut world);
-    // for (&mut health, &mut transform) in query {
-    //     transform.position[0] += health.0;
-    // }
+    run_system::<(RefMut<Health>, Ref<Position>)>(&map, |(mut hp, pos)| {
+        println!("{:?}, {:?}", hp, pos);
+        hp.0 = 50.0;
+    });
     
+    run_system::<(RefMut<Position>, Ref<Health>)>(&map, |(mut pos, hp)| {
+        println!("{:?}, {:?}", hp, pos);
+        pos.x += 50.0;
+    });
 
-    Ok(())
+    run_system::<Ref<Position>>(&map, |pos| {
+        println!("{:?}", pos);
+    });
+
+    // Will not run
+    run_system::<(RefMut<Position>, Ref<Position>)>(&map, |(mut a, b)| {
+        println!("{:?}, {:?}", a, b);
+        a.x += 50.0;
+    });
+
+    // Will run
+    run_system::<(Ref<Position>, Ref<Position>)>(&map, |(a, b)| {
+        println!("{:?}, {:?}", a, b);
+    });
 }
