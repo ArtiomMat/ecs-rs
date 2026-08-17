@@ -2,6 +2,8 @@ use std::any::{Any};
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use crate::ecs::QueryParam;
+
 use super::component_storage::{ComponentStorageStrategy, ComponentsStorage};
 use super::error::Error;
 use super::id_types::{ComponentId, EntityId};
@@ -45,23 +47,23 @@ impl World {
 
     /// Get a reference to the component of type `C` that belongs to this
     /// entity.
-    pub fn get_entity_component<C: 'static>(&self, entity_id: EntityId) -> Result<&C, Error> {
-        let component_index = self.get_entity_component_index::<C>(entity_id)?;
+    // pub fn get_entity_component<C: 'static>(&self, entity_id: EntityId) -> Result<&C, Error> {
+    //     let component_index = self.get_entity_component_index::<C>(entity_id)?;
 
-        let component_storage = self.get_component_storage::<C>()?;
-        Ok(&component_storage.components[component_index].1)
-    }
+    //     let component_storage = self.get_component_storage::<C>()?;
+    //     Ok(&component_storage.components[component_index].1)
+    // }
 
-    /// Mutable [`Self::get_entity_component`].
-    pub fn get_entity_component_mut<C: 'static>(
-        &mut self,
-        entity_id: EntityId,
-    ) -> Result<&mut C, Error> {
-        let component_index = self.get_entity_component_index::<C>(entity_id)?;
+    // /// Mutable [`Self::get_entity_component`].
+    // pub fn get_entity_component_mut<C: 'static>(
+    //     &mut self,
+    //     entity_id: EntityId,
+    // ) -> Result<&mut C, Error> {
+    //     let component_index = self.get_entity_component_index::<C>(entity_id)?;
 
-        let component_storage = self.get_component_storage_mut::<C>()?;
-        Ok(&mut component_storage.components[component_index].1)
-    }
+    //     let component_storage = self.get_component_storage_mut::<C>()?;
+    //     Ok(&mut component_storage.components[component_index].1)
+    // }
 
     /// Add a component of type `C` to the entity.
     pub fn add_component<C: 'static>(
@@ -118,5 +120,13 @@ impl World {
             .get_mut(&type_id)
             .and_then(|cs| (*cs).downcast_mut::<ComponentsStorage<C>>())
             .ok_or(Error::InvalidWorldComponent(std::any::type_name::<C>()))
+    }
+
+    pub fn query<'w, T>(&'w self, system: impl Fn(T::Output)) where T: QueryParam<'w> {
+        for &e in &self.entity_validity_set {
+            if let Some(index) = T::index(self, e) {
+                system(T::fetch(self, index));
+            }
+        }
     }
 }

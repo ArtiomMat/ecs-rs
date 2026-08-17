@@ -17,24 +17,43 @@ struct Animal {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    // let mut world = ecs::World::new();
+    let mut world = ecs::World::new();
 
-    // world.add_component_storage::<Health>();
-    // world.add_component_storage::<Transform>();
-    // world.add_component_storage::<Glyph>();
-    // world.add_component_storage::<PlayerTag>();
-    // world.add_component_storage::<EnemyTag>();
+    world.add_component_storage::<Health>();
+    world.add_component_storage::<Transform>();
+    world.add_component_storage::<Glyph>();
+    world.add_component_storage::<PlayerTag>();
+    world.add_component_storage::<EnemyTag>();
 
-    // let player = world.create_entity();
-    // world.add_entity_component(player, PlayerTag)?;
-    // world.add_entity_component(player, Health(1.0))?;
-    // world.add_entity_component(
-    //     player,
-    //     Transform {
-    //         position: [1.0, 2.0, 3.0],
-    //         rotation: [0.0, 0.0, 0.0],
-    //     },
-    // )?;
+    let player = world.create_entity();
+    world.add_component(player, PlayerTag)?;
+    world.add_component(player, Health(1.0))?;
+    world.add_component(
+        player,
+        Transform {
+            position: [1.0, 2.0, 3.0],
+            rotation: [0.0, 0.0, 0.0],
+        },
+    )?;
+
+    let enemy = world.create_entity();
+    world.add_component(enemy, EnemyTag)?;
+    world.add_component(enemy, Health(1.0))?;
+    world.add_component(enemy, Glyph('a'))?;
+
+    let enemy2 = world.create_entity();
+    world.add_component(enemy2, EnemyTag)?;
+    world.add_component(enemy2, Health(2.0))?;
+    world.add_component(enemy2, Glyph('b'))?;
+
+    world.query::<(&Health, &PlayerTag)>(|(hp, _)| {
+        println!("Player {}", hp.0);
+    });
+
+    world.query::<(&Health, &mut Glyph)>(|(hp, glyph)| {
+        println!("Enemy {} {}", hp.0, glyph.0);
+    });
+
 
     // for i in 0..10 {
     //     let enemy = world.create_entity();
@@ -47,7 +66,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     //             rotation: [0.0, 0.0, 0.0],
     //         },
     //     )?;
-    // }    
+    // }
 
     // let query = Query::<(&Health, &Transform)>::new(&world);
     // let query = QueryMut::<(&mut Health, &Transform)>::new(&mut world);
@@ -55,7 +74,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // for (&mut health, &mut transform) in query {
     //     transform.position[0] += health.0;
     // }
-    
+
     // world.query::<(&mut Health, &Transform)>()
 
     Ok(())

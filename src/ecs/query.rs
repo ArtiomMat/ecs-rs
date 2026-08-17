@@ -1,25 +1,64 @@
-use std::marker::PhantomData;
+use std::{cell::{Ref, RefMut}, marker::PhantomData};
 
-use crate::ecs::Error;
+use crate::ecs::{EntityId, Error};
 
 use super::{World, ComponentsStorage};
 
-struct Query<'a, T> {
-    world: &'a World,
-    phantom: PhantomData<T>,
+pub trait QueryParam<'w> {
+    type Output;
+
+    fn index(world: &'w World, e: EntityId) -> Option<usize>;
+    fn fetch(world: &'w World, index: usize) -> Self::Output;
 }
 
-impl<'a, A: 'static, B: 'static, C: 'static> Query<'a, (&A, &B, &C)> {
-    pub fn new(world: &'a World) -> Result<Self, Error> {
-        let component_storage_a = world.get_component_storage::<A>()?;
-        let component_storage_b = world.get_component_storage::<B>()?;
-        let component_storage_c = world.get_component_storage::<C>()?;
+impl<'w, A: 'static> QueryParam<'w> for &A {
+    type Output = Ref<'w, A>;
 
-        
+    fn index(world: &'w World, e: EntityId) -> Option<usize> {
+        let component_storage = world.get_component_storage::<A>().unwrap();
+        component_storage.entity_id_to_component.get(&e).map(|x| *x)
+    }
 
-        Ok(Self {
-            world,
-            phantom: PhantomData
-        })
+    fn fetch(world: &'w World, index: usize) -> Self::Output {
+        let component_storage = world.get_component_storage().unwrap();
+        component_storage.components[index].1.borrow()
+    }
+}
+
+impl<'w, A: 'static> QueryParam<'w> for &mut A {
+    type Output = RefMut<'w, A>;
+
+    fn index(world: &'w World, e: EntityId) -> Option<usize> {
+        let component_storage = world.get_component_storage::<A>().unwrap();
+        component_storage.entity_id_to_component.get(&e).map(|x| *x)
+    }
+
+    fn fetch(world: &'w World, index: usize) -> Self::Output {
+        let component_storage = world.get_component_storage().unwrap();
+        component_storage.components[index].1.borrow_mut()
+    }
+}
+
+impl<'w, A, B> QueryParam<'w> for (A, B) where A: QueryParam<'w>, B: QueryParam<'w> {
+    type Output = (A::Output, B::Output);
+
+    fn index(world: &'w World, e: EntityId) -> Option<usize> {
+        A::index(world, e).and(B::index(world, e))
+    }
+
+    fn fetch(world: &'w World, index: usize) -> Self::Output {
+        (A::fetch(world, index), B::fetch(world, index))
+    }
+}
+
+impl<'w, A, B, C> QueryParam<'w> for (A, B, C) where A: QueryParam<'w>, B: QueryParam<'w>, C: QueryParam<'w> {
+    type Output = (A::Output, B::Output, C::Output);
+
+    fn index(world: &'w World, e: EntityId) -> Option<usize> {
+        A::index(world, e).and(B::index(world, e)).and(C::index(world, e))
+    }
+
+    fn fetch(world: &'w World, index: usize) -> Self::Output {
+        (A::fetch(world, index), B::fetch(world, index), C::fetch(world, index))
     }
 }

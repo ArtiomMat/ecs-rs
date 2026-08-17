@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 
 use crate::ecs::bitvec::BitVec;
@@ -12,7 +13,7 @@ pub enum ComponentStorageStrategy {
 
 pub(super) struct ComponentsStorage<C: 'static> {
     /// A vector of pairs of entity id and the respective component data
-    pub(super) components: Vec<(EntityId, C)>,
+    pub(super) components: Vec<(EntityId, RefCell<C>)>,
     /// A map between entity IDs and their respective component index in `components`
     pub(super) entity_id_to_component: HashMap<EntityId, usize>,
 }
@@ -26,14 +27,14 @@ impl<C> ComponentsStorage<C> {
     }
 
     /// Get the component that belongs to this entity.
-    pub(super) fn get_entity_component(&self, entity_id: EntityId) -> &C {
-        &(self.components[self.entity_id_to_component[&entity_id]].1)
-    }
+    // pub(super) fn get_entity_component(&self, entity_id: EntityId) -> &C {
+    //     &(self.components[self.entity_id_to_component[&entity_id]].1)
+    // }
 
-    /// Mutable [`Self::get_entity_component`]
-    pub(super) fn get_entity_component_mut(&mut self, entity_id: EntityId) -> &mut C {
-        &mut (self.components[self.entity_id_to_component[&entity_id]].1)
-    }
+    // /// Mutable [`Self::get_entity_component`]
+    // pub(super) fn get_entity_component_mut(&mut self, entity_id: EntityId) -> &mut C {
+    //     &mut (self.components[self.entity_id_to_component[&entity_id]].1)
+    // }
 
     /// Add the `component` to this entity.
     pub(super) fn add_component(&mut self, entity_id: EntityId, component: C) -> Result<(), Error> {
@@ -51,7 +52,7 @@ impl<C> ComponentsStorage<C> {
 
         self
             .components
-            .push((entity_id, component));
+            .push((entity_id, RefCell::new(component)));
         self
             .entity_id_to_component
             .insert(entity_id, component_index);
@@ -98,7 +99,7 @@ impl<C> ComponentsStorage<C> {
         // Remove from the id-to-component map
         self.entity_id_to_component.remove(&entity_id);
 
-        Ok(entity_component_data)
+        Ok(entity_component_data.into_inner())
     }
 
     pub(super) fn get_entity_component_index(&self, entity_id: EntityId) -> Result<usize, Error> {
