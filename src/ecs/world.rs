@@ -7,15 +7,10 @@ use super::error::Error;
 use super::id_types::{ComponentId, EntityId};
 
 pub struct World {
-    component_storage_vecs: HashMap<ComponentId, Box<dyn Any>>,
-    // component_vecs: HashMap<TypeId, Box<dyn Any>>,
-    // entities: HashMap<EntityId, Entity>,
-    entity_validity_set: HashSet<EntityId>,
-    entity_counter: AtomicUsize,
-    component_storage_types: HashMap<ComponentId, ComponentStorageStrategy>,
-
-    // sparse_set_world: SparseSetWorld
-    // archetype_world: ArchetypeWorld
+    /// `dyn Any` is `ComponentStorage<C>`
+    pub(super) component_storage_vecs: HashMap<ComponentId, Box<dyn Any>>,
+    pub(super) entity_validity_set: HashSet<EntityId>,
+    pub(super) entity_counter: AtomicUsize,
 }
 
 impl World {
@@ -24,7 +19,6 @@ impl World {
             component_storage_vecs: HashMap::new(),
             entity_validity_set: HashSet::new(),
             entity_counter: 0.into(),
-            component_storage_types: HashMap::new(),
         }
     }
 
@@ -70,7 +64,7 @@ impl World {
     }
 
     /// Add a component of type `C` to the entity.
-    pub fn add_entity_component<C: 'static>(
+    pub fn add_component<C: 'static>(
         &mut self,
         entity_id: EntityId,
         component: C,
@@ -82,44 +76,46 @@ impl World {
         self.add_component_storage::<C>();
 
         let component_storage = self.get_component_storage_mut::<C>()?;
-        component_storage.add_entity_component(entity_id, component)
+        component_storage.add_component(entity_id, component)
     }
 
     /// Remove the component of type `C` the entity currently has.
-    pub fn remove_entity_component<C: 'static>(&mut self, entity_id: EntityId) -> Result<C, Error> {
+    pub fn remove_component<C: 'static>(&mut self, entity_id: EntityId) -> Result<C, Error> {
         if !self.is_entity_valid(entity_id) {
             return Err(Error::InvalidEntityId(entity_id));
         }
 
         let component_storage = self.get_component_storage_mut::<C>()?;
-        component_storage.remove_entity_component(entity_id)
+        component_storage.remove_component(entity_id)
     }
 
     /// Returns `true` if the component was already registered.
     /// Otherwise will register the component.
     pub fn add_component_storage<C: 'static>(&mut self) -> bool {
-        let component_id = ComponentId::of::<C>();
-        if self.component_storage_vecs.contains_key(&component_id) {
+        let type_id = ComponentId::of::<C>();
+        if self.component_storage_vecs.contains_key(&type_id) {
             true
         } else {
             self.component_storage_vecs
-                .insert(component_id, Box::new(ComponentsStorage::<C>::new()));
+                .insert(type_id, Box::new(ComponentsStorage::<C>::new()));
             false
         }
     }
 
     /// Get a reference to the component storage by the component's type.
-    fn get_component_storage<C: 'static>(&self) -> Result<&ComponentsStorage<C>, Error> {
+    pub(super) fn get_component_storage<C: 'static>(&self) -> Result<&ComponentsStorage<C>, Error> {
+        let type_id = &ComponentId::of::<C>();
         self.component_storage_vecs
-            .get(&ComponentId::of::<C>())
+            .get(&type_id)
             .and_then(|cs| (*cs).downcast_ref::<ComponentsStorage<C>>())
             .ok_or(Error::InvalidWorldComponent(std::any::type_name::<C>()))
     }
 
     /// Mutable [`Self::get_component_storage`].
-    fn get_component_storage_mut<C: 'static>(&mut self) -> Result<&mut ComponentsStorage<C>, Error> {
+    pub(super) fn get_component_storage_mut<C: 'static>(&mut self) -> Result<&mut ComponentsStorage<C>, Error> {
+        let type_id = &ComponentId::of::<C>();
         self.component_storage_vecs
-            .get_mut(&ComponentId::of::<C>())
+            .get_mut(&type_id)
             .and_then(|cs| (*cs).downcast_mut::<ComponentsStorage<C>>())
             .ok_or(Error::InvalidWorldComponent(std::any::type_name::<C>()))
     }

@@ -13,7 +13,7 @@ pub enum ComponentStorageStrategy {
 pub(super) struct ComponentsStorage<C: 'static> {
     /// A vector of pairs of entity id and the respective component data
     pub(super) components: Vec<(EntityId, C)>,
-    /// A map between entity IDs and their respective component index in `component_vec`
+    /// A map between entity IDs and their respective component index in `components`
     pub(super) entity_id_to_component: HashMap<EntityId, usize>,
 }
 
@@ -36,7 +36,7 @@ impl<C> ComponentsStorage<C> {
     }
 
     /// Add the `component` to this entity.
-    pub(super) fn add_entity_component(&mut self, entity_id: EntityId, component: C) -> Result<(), Error> {
+    pub(super) fn add_component(&mut self, entity_id: EntityId, component: C) -> Result<(), Error> {
         if self
             .entity_id_to_component
             .contains_key(&entity_id)
@@ -59,7 +59,7 @@ impl<C> ComponentsStorage<C> {
         Ok(())
     }
 
-    pub(super) fn remove_entity_component(&mut self, entity_id: EntityId) -> Result<C, Error> {
+    pub(super) fn remove_component(&mut self, entity_id: EntityId) -> Result<C, Error> {
         let entity_component_index = *self
             .entity_id_to_component
             .get(&entity_id)
@@ -73,15 +73,12 @@ impl<C> ComponentsStorage<C> {
             .pop()
             .expect("There can't be no components, because there is an entity");
 
-        // Remove from the id-to-component map
-        self.entity_id_to_component.remove(&entity_id);
-        
         let entity_component_data =
             if entity_component_index == self.components.len() {
                 // The popped component is of the last entity. No need for swaps.
                 popped_component.1
             } else {
-                // Otherwise do a swap with the 
+                // Otherwise swap the entity's component with the component we just popped.
 
                 // Update the entity component map to the new index
                 if let Some(index) = self
@@ -98,7 +95,9 @@ impl<C> ComponentsStorage<C> {
                 .1
             };
 
+        // Remove from the id-to-component map
         self.entity_id_to_component.remove(&entity_id);
+
         Ok(entity_component_data)
     }
 
@@ -114,4 +113,9 @@ impl<C> ComponentsStorage<C> {
         Ok(component_index)
     }
 
+    /// Returns how many component instances it stores, i.e. how many instances
+    /// have `C` registered to them.
+    pub(super) fn len(&self) -> usize {
+        return self.components.len()
+    }
 }

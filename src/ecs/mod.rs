@@ -9,8 +9,6 @@ pub mod id_types;
 pub mod component_storage;
 pub mod world;
 pub mod query;
-mod world_backend;
-mod world_backends;
 mod bitvec;
 
 #[cfg(test)]
