@@ -111,19 +111,18 @@ impl World {
             .ok_or(Error::InvalidWorldComponent(std::any::type_name::<C>()))
     }
 
-    pub fn query<'w, T>(&'w self, mut system: impl FnMut(T::Output)) where T: QueryParam<'w> {
-        let len = T::matches_len(self).unwrap_or(usize::MAX);
-        let mut matched_count = 0;
-
-        for &e in &self.entity_validity_set {
-            if matched_count == len {
-                break;
-            }
-
+    fn query_using_iter<'w, T>(&'w self, iter: impl Iterator<Item = &'w EntityId>, mut system: impl FnMut(T::Output)) where T: QueryParam<'w> {
+        for &e in iter {
             if T::matches(self, e) {
                 system(T::fetch(self, e));
-                matched_count += 1;
             }
+        }
+    }
+
+    pub fn query<'w, T>(&'w self, system: impl FnMut(T::Output)) where T: QueryParam<'w> {
+        match T::guaranteed_matches_iter(self) {
+            Some(iter) => self.query_using_iter::<T>(iter, system),
+            None => self.query_using_iter::<T>(self.entity_validity_set.iter(), system),
         }
     }
 }

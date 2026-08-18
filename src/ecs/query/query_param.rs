@@ -5,7 +5,11 @@ use crate::ecs::{EntityId, World};
 pub trait QueryParam<'w> {
     type Output;
 
-    fn matches_len(world: &'w World) -> Option<usize> {
+    fn guaranteed_matches_len(world: &'w World) -> Option<usize> {
+        None
+    }
+
+    fn guaranteed_matches_iter(world: &'w World) -> Option<std::slice::Iter<'w, EntityId>> {
         None
     }
 

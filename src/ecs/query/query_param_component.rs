@@ -21,12 +21,17 @@ impl<'w, A: 'static> QueryParam<'w> for Read<A> {
     fn fetch(world: &'w World, e: EntityId) -> Self::Output {
         let component_storage = world.get_component_storage().unwrap();
         let component_index = component_storage.get_entity_component_index(e).unwrap();
-        component_storage.components[component_index].1.borrow()
+        component_storage.components[component_index].borrow()
     }
 
-    fn matches_len(world: &'w World) -> Option<usize> {
+    fn guaranteed_matches_len(world: &'w World) -> Option<usize> {
         let component_storage = world.get_component_storage::<A>().unwrap();
         Some(component_storage.entity_id_to_component.len())
+    }
+
+    fn guaranteed_matches_iter(world: &'w World) -> Option<std::slice::Iter<'w, EntityId>> {
+        let component_storage = world.get_component_storage::<A>().unwrap();
+        Some(component_storage.entity_ids.iter())
     }
 }
 
@@ -41,12 +46,17 @@ impl<'w, A: 'static> QueryParam<'w> for Write<A> {
     fn fetch(world: &'w World, e: EntityId) -> Self::Output {
         let component_storage = world.get_component_storage().unwrap();
         let component_index = component_storage.get_entity_component_index(e).unwrap();
-        component_storage.components[component_index].1.borrow_mut()
+        component_storage.components[component_index].borrow_mut()
     }
 
-    fn matches_len(world: &'w World) -> Option<usize> {
+    fn guaranteed_matches_len(world: &'w World) -> Option<usize> {
         let component_storage = world.get_component_storage::<A>().unwrap();
         Some(component_storage.entity_id_to_component.len())
+    }
+
+    fn guaranteed_matches_iter(world: &'w World) -> Option<std::slice::Iter<'w, EntityId>> {
+        let component_storage = world.get_component_storage::<A>().unwrap();
+        Some(component_storage.entity_ids.iter())
     }
 }
 
@@ -60,14 +70,18 @@ impl<'w, A: 'static> QueryParam<'w> for Option<Read<A>> {
     fn fetch(world: &'w World, e: EntityId) -> Self::Output {
         let component_storage = world.get_component_storage().unwrap();
         if let Ok(component_index) = component_storage.get_entity_component_index(e) {
-            Some(component_storage.components[component_index].1.borrow())
+            Some(component_storage.components[component_index].borrow())
         } else {
             None
         }
     }
 
-    fn matches_len(_world: &'w World) -> Option<usize> {
+    fn guaranteed_matches_len(_world: &'w World) -> Option<usize> {
         None // Unbounded
+    }
+
+    fn guaranteed_matches_iter(_world: &'w World) -> Option<std::slice::Iter<'w, EntityId>> {
+        None
     }
 }
 
@@ -83,9 +97,14 @@ impl<'w, A: 'static> QueryParam<'w> for With<A> {
         ()
     }
 
-    fn matches_len(world: &'w World) -> Option<usize> {
+    fn guaranteed_matches_len(world: &'w World) -> Option<usize> {
         let component_storage = world.get_component_storage::<A>().unwrap();
         Some(component_storage.entity_id_to_component.len())
+    }
+
+    fn guaranteed_matches_iter(world: &'w World) -> Option<std::slice::Iter<'w, EntityId>> {
+        let component_storage = world.get_component_storage::<A>().unwrap();
+        Some(component_storage.entity_ids.iter())
     }
 }
 
@@ -100,7 +119,11 @@ impl<'w, A: 'static> QueryParam<'w> for Without<A> {
         ()
     }
 
-    fn matches_len(_world: &'w World) -> Option<usize> {
+    fn guaranteed_matches_len(_world: &'w World) -> Option<usize> {
         None // Unbounded
+    }
+
+    fn guaranteed_matches_iter(_world: &'w World) -> Option<std::slice::Iter<'w, EntityId>> {
+        None
     }
 }
