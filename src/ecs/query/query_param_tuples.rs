@@ -21,7 +21,7 @@ where
         A::guaranteed_matches_len(world).min(B::guaranteed_matches_len(world))
     }
 
-    fn guaranteed_matches_iter(world: &'w World) -> Option<std::slice::Iter<'w, EntityId>> {
+    fn guaranteed_matches_iter(world: &'w World) -> Box<dyn Iterator<Item = &'w EntityId> + 'w> {
         let lens = [
             A::guaranteed_matches_len(world),
             B::guaranteed_matches_len(world),
@@ -29,7 +29,7 @@ where
         match lens.iter().enumerate().min().unwrap().0 {
             0 => A::guaranteed_matches_iter(world),
             1 => B::guaranteed_matches_iter(world),
-            _ => None,
+            _ => unreachable!(),
         }
     }
 }
@@ -56,7 +56,8 @@ where
             .min(C::guaranteed_matches_len(world))
     }
 
-    fn guaranteed_matches_iter(world: &'w World) -> Option<std::slice::Iter<'w, EntityId>> {
+
+    fn guaranteed_matches_iter(world: &'w World) -> Box<dyn Iterator<Item = &'w EntityId> + 'w> {
         let lens = [
             A::guaranteed_matches_len(world),
             B::guaranteed_matches_len(world),
@@ -66,7 +67,7 @@ where
             0 => A::guaranteed_matches_iter(world),
             1 => B::guaranteed_matches_iter(world),
             2 => C::guaranteed_matches_iter(world),
-            _ => None,
+            _ => unreachable!(),
         }
     }
 }

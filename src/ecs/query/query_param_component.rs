@@ -29,9 +29,9 @@ impl<'w, A: 'static> QueryParam<'w> for Read<A> {
         component_storage.entity_id_to_component.len()
     }
 
-    fn guaranteed_matches_iter(world: &'w World) -> Option<std::slice::Iter<'w, EntityId>> {
+    fn guaranteed_matches_iter(world: &'w World) -> Box<dyn Iterator<Item = &'w EntityId> + 'w> {
         let component_storage = world.get_component_storage::<A>().unwrap();
-        Some(component_storage.entity_ids.iter())
+        Box::new(component_storage.entity_ids.iter())
     }
 }
 
@@ -54,9 +54,9 @@ impl<'w, A: 'static> QueryParam<'w> for Write<A> {
         component_storage.entity_id_to_component.len()
     }
 
-    fn guaranteed_matches_iter(world: &'w World) -> Option<std::slice::Iter<'w, EntityId>> {
+    fn guaranteed_matches_iter(world: &'w World) -> Box<dyn Iterator<Item = &'w EntityId> + 'w> {
         let component_storage = world.get_component_storage::<A>().unwrap();
-        Some(component_storage.entity_ids.iter())
+        Box::new(component_storage.entity_ids.iter())
     }
 }
 
@@ -80,8 +80,8 @@ impl<'w, A: 'static> QueryParam<'w> for Option<Read<A>> {
         world.entity_validity_set.len() // Unbounded
     }
 
-    fn guaranteed_matches_iter(_world: &'w World) -> Option<std::slice::Iter<'w, EntityId>> {
-        None
+    fn guaranteed_matches_iter(world: &'w World) -> Box<dyn Iterator<Item = &'w EntityId> + 'w> {
+        Box::new(world.entity_validity_set.iter())
     }
 }
 
@@ -102,9 +102,9 @@ impl<'w, A: 'static> QueryParam<'w> for With<A> {
         component_storage.entity_id_to_component.len()
     }
 
-    fn guaranteed_matches_iter(world: &'w World) -> Option<std::slice::Iter<'w, EntityId>> {
+    fn guaranteed_matches_iter(world: &'w World) -> Box<dyn Iterator<Item = &'w EntityId> + 'w> {
         let component_storage = world.get_component_storage::<A>().unwrap();
-        Some(component_storage.entity_ids.iter())
+        Box::new(component_storage.entity_ids.iter())
     }
 }
 
@@ -123,7 +123,7 @@ impl<'w, A: 'static> QueryParam<'w> for Without<A> {
         world.entity_validity_set.len() // Unbounded
     }
 
-    fn guaranteed_matches_iter(_world: &'w World) -> Option<std::slice::Iter<'w, EntityId>> {
-        None
+    fn guaranteed_matches_iter(world: &'w World) -> Box<dyn Iterator<Item = &'w EntityId> + 'w> {
+        Box::new(world.entity_validity_set.iter())
     }
 }

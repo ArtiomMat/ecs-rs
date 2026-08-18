@@ -119,10 +119,11 @@ impl World {
         }
     }
 
-    pub fn query<'w, T>(&'w self, system: impl FnMut(T::Output)) where T: QueryParam<'w> {
-        match T::guaranteed_matches_iter(self) {
-            Some(iter) => self.query_using_iter::<T>(iter, system),
-            None => self.query_using_iter::<T>(self.entity_validity_set.iter(), system),
+    pub fn query<'w, T>(&'w self, mut system: impl FnMut(T::Output)) where T: QueryParam<'w> {
+        for &e in T::guaranteed_matches_iter(self) {
+            if T::matches(self, e) {
+                system(T::fetch(self, e));
+            }
         }
     }
 }

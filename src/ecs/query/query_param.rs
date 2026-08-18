@@ -9,8 +9,8 @@ pub trait QueryParam<'w> {
         world.entity_validity_set.len()
     }
 
-    fn guaranteed_matches_iter(world: &'w World) -> Option<std::slice::Iter<'w, EntityId>> {
-        None
+    fn guaranteed_matches_iter(world: &'w World) -> Box<dyn Iterator<Item = &'w EntityId> + 'w> {
+        Box::new(world.entity_validity_set.iter())
     }
 
     fn matches(world: &'w World, entity_id: EntityId) -> bool;
