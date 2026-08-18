@@ -1,0 +1,83 @@
+use std::cell::{Ref, RefMut};
+
+use crate::ecs::{EntityId, QueryParam, World};
+
+
+pub struct Read<T>(T);
+pub struct Write<T>(T);
+pub struct With<T>(T);
+pub struct Without<T>(T);
+
+impl<'w, A: 'static> QueryParam<'w> for Read<A> {
+    type Output = Ref<'w, A>;
+
+    fn matches(world: &'w World, e: EntityId) -> bool {
+        let component_storage = world.get_component_storage::<A>().unwrap();
+        component_storage.entity_id_to_component.contains_key(&e)
+    }
+
+    fn fetch(world: &'w World, e: EntityId) -> Self::Output {
+        let component_storage = world.get_component_storage().unwrap();
+        let component_index = component_storage.get_entity_component_index(e).unwrap();
+        component_storage.components[component_index].1.borrow()
+    }
+}
+
+impl<'w, A: 'static> QueryParam<'w> for Write<A> {
+    type Output = RefMut<'w, A>;
+
+    fn matches(world: &'w World, e: EntityId) -> bool {
+        let component_storage = world.get_component_storage::<A>().unwrap();
+        component_storage.entity_id_to_component.contains_key(&e)
+    }
+
+    fn fetch(world: &'w World, e: EntityId) -> Self::Output {
+        let component_storage = world.get_component_storage().unwrap();
+        let component_index = component_storage.get_entity_component_index(e).unwrap();
+        component_storage.components[component_index].1.borrow_mut()
+    }
+}
+
+impl<'w, A: 'static> QueryParam<'w> for Option<Read<A>> {
+    type Output = Option<Ref<'w, A>>;
+
+    fn matches(world: &'w World, e: EntityId) -> bool {
+        world.get_component_storage::<A>().is_ok()
+    }
+
+    fn fetch(world: &'w World, e: EntityId) -> Self::Output {
+        let component_storage = world.get_component_storage().unwrap();
+        if let Ok(component_index) = component_storage.get_entity_component_index(e) {
+            Some(component_storage.components[component_index].1.borrow())
+        } else {
+            None
+        }
+    }
+}
+
+impl<'w, A: 'static> QueryParam<'w> for With<A> {
+    type Output = ();
+
+    fn matches(world: &'w World, e: EntityId) -> bool {
+        let component_storage = world.get_component_storage::<A>().unwrap();
+        component_storage.entity_id_to_component.contains_key(&e)
+    }
+
+
+    fn fetch(_world: &'w World, _e: EntityId) -> Self::Output {
+        ()
+    }
+}
+
+impl<'w, A: 'static> QueryParam<'w> for Without<A> {
+    type Output = ();
+
+    fn matches(world: &'w World, e: EntityId) -> bool {
+        !With::<A>::matches(world, e)
+    }
+
+
+    fn fetch(_world: &'w World, _e: EntityId) -> Self::Output {
+        ()
+    }
+}

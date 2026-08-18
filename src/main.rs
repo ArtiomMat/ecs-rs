@@ -7,6 +7,7 @@ struct Transform {
     position: [f32; 3],
     rotation: [f32; 3],
 }
+#[derive(Clone, Copy)]
 struct Glyph(char);
 
 struct PlayerTag;
@@ -50,8 +51,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     //     println!("Player {}", hp.0);
     // });
 
-    world.query::<(&Health, &Glyph)>(|(hp, glyph)| {
-        println!("Enemy {} {}", hp.0, glyph.0);
+    world.query::<(Option<ecs::Read<Glyph>>, ecs::Read<Health>, ecs::With<Transform>)>(|(glyph, hp, _)| {
+        println!("Enemy {} {}", glyph.map(|x| x.clone()).unwrap_or(Glyph('!')).0, hp.0);
     });
 
 

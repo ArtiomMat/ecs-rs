@@ -113,7 +113,7 @@ impl World {
 
     pub fn query<'w, T>(&'w self, system: impl Fn(T::Output)) where T: QueryParam<'w> {
         for &e in &self.entity_validity_set {
-            if let Some(_) = T::index(self, e) {
+            if T::matches(self, e) {
                 system(T::fetch(self, e));
             }
         }
