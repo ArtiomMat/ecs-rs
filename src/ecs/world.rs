@@ -1,5 +1,5 @@
 use std::any::{Any};
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::ecs::QueryParam;
@@ -11,7 +11,7 @@ use super::id_types::{ComponentId, EntityId};
 pub struct World {
     /// `dyn Any` is `ComponentStorage<C>`
     pub(super) component_storage_vecs: HashMap<ComponentId, Box<dyn Any>>,
-    pub(super) entity_validity_set: BTreeSet<EntityId>,
+    pub(super) entity_validity_set: HashSet<EntityId>,
     pub(super) entity_counter: AtomicUsize,
 }
 
@@ -19,7 +19,7 @@ impl World {
     pub fn new() -> Self {
         Self {
             component_storage_vecs: HashMap::new(),
-            entity_validity_set: BTreeSet::new(),
+            entity_validity_set: HashSet::new(),
             entity_counter: 0.into(),
         }
     }
