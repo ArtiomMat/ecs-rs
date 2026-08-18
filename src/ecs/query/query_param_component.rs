@@ -24,9 +24,9 @@ impl<'w, A: 'static> QueryParam<'w> for Read<A> {
         component_storage.components[component_index].borrow()
     }
 
-    fn guaranteed_matches_len(world: &'w World) -> Option<usize> {
+    fn guaranteed_matches_len(world: &'w World) -> usize {
         let component_storage = world.get_component_storage::<A>().unwrap();
-        Some(component_storage.entity_id_to_component.len())
+        component_storage.entity_id_to_component.len()
     }
 
     fn guaranteed_matches_iter(world: &'w World) -> Option<std::slice::Iter<'w, EntityId>> {
@@ -49,9 +49,9 @@ impl<'w, A: 'static> QueryParam<'w> for Write<A> {
         component_storage.components[component_index].borrow_mut()
     }
 
-    fn guaranteed_matches_len(world: &'w World) -> Option<usize> {
+    fn guaranteed_matches_len(world: &'w World) -> usize {
         let component_storage = world.get_component_storage::<A>().unwrap();
-        Some(component_storage.entity_id_to_component.len())
+        component_storage.entity_id_to_component.len()
     }
 
     fn guaranteed_matches_iter(world: &'w World) -> Option<std::slice::Iter<'w, EntityId>> {
@@ -76,8 +76,8 @@ impl<'w, A: 'static> QueryParam<'w> for Option<Read<A>> {
         }
     }
 
-    fn guaranteed_matches_len(_world: &'w World) -> Option<usize> {
-        None // Unbounded
+    fn guaranteed_matches_len(world: &'w World) -> usize {
+        world.entity_validity_set.len() // Unbounded
     }
 
     fn guaranteed_matches_iter(_world: &'w World) -> Option<std::slice::Iter<'w, EntityId>> {
@@ -97,9 +97,9 @@ impl<'w, A: 'static> QueryParam<'w> for With<A> {
         ()
     }
 
-    fn guaranteed_matches_len(world: &'w World) -> Option<usize> {
+    fn guaranteed_matches_len(world: &'w World) -> usize {
         let component_storage = world.get_component_storage::<A>().unwrap();
-        Some(component_storage.entity_id_to_component.len())
+        component_storage.entity_id_to_component.len()
     }
 
     fn guaranteed_matches_iter(world: &'w World) -> Option<std::slice::Iter<'w, EntityId>> {
@@ -119,8 +119,8 @@ impl<'w, A: 'static> QueryParam<'w> for Without<A> {
         ()
     }
 
-    fn guaranteed_matches_len(_world: &'w World) -> Option<usize> {
-        None // Unbounded
+    fn guaranteed_matches_len(world: &'w World) -> usize {
+        world.entity_validity_set.len() // Unbounded
     }
 
     fn guaranteed_matches_iter(_world: &'w World) -> Option<std::slice::Iter<'w, EntityId>> {

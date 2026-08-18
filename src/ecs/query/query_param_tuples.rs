@@ -17,7 +17,7 @@ where
         (A::fetch(world, e), B::fetch(world, e))
     }
 
-    fn guaranteed_matches_len(world: &'w World) -> Option<usize> {
+    fn guaranteed_matches_len(world: &'w World) -> usize {
         A::guaranteed_matches_len(world).min(B::guaranteed_matches_len(world))
     }
 
@@ -26,13 +26,10 @@ where
             A::guaranteed_matches_len(world),
             B::guaranteed_matches_len(world),
         ];
-        match lens.iter().enumerate().min() {
-            Some((i, ..)) => match i {
-                0 => A::guaranteed_matches_iter(world),
-                1 => B::guaranteed_matches_iter(world),
-                _ => None,
-            },
-            None => None,
+        match lens.iter().enumerate().min().unwrap().0 {
+            0 => A::guaranteed_matches_iter(world),
+            1 => B::guaranteed_matches_iter(world),
+            _ => None,
         }
     }
 }
@@ -53,7 +50,7 @@ where
         (A::fetch(world, e), B::fetch(world, e), C::fetch(world, e))
     }
 
-    fn guaranteed_matches_len(world: &'w World) -> Option<usize> {
+    fn guaranteed_matches_len(world: &'w World) -> usize {
         A::guaranteed_matches_len(world)
             .min(B::guaranteed_matches_len(world))
             .min(C::guaranteed_matches_len(world))
@@ -65,14 +62,11 @@ where
             B::guaranteed_matches_len(world),
             C::guaranteed_matches_len(world),
         ];
-        match lens.iter().enumerate().min() {
-            Some((i, ..)) => match i {
-                0 => A::guaranteed_matches_iter(world),
-                1 => B::guaranteed_matches_iter(world),
-                2 => C::guaranteed_matches_iter(world),
-                _ => None,
-            },
-            None => None,
+        match lens.iter().enumerate().min().unwrap().0 {
+            0 => A::guaranteed_matches_iter(world),
+            1 => B::guaranteed_matches_iter(world),
+            2 => C::guaranteed_matches_iter(world),
+            _ => None,
         }
     }
 }
