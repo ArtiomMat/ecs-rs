@@ -1,4 +1,6 @@
-use std::cell::{Ref, RefMut};
+//! Implements `Read`, `Write`, `With`, `Without`.
+
+use std::{cell::{Ref, RefMut}, collections::HashMap};
 
 use crate::ecs::{EntityId, QueryParam, World};
 
@@ -21,6 +23,11 @@ impl<'w, A: 'static> QueryParam<'w> for Read<A> {
         let component_index = component_storage.get_entity_component_index(e).unwrap();
         component_storage.components[component_index].1.borrow()
     }
+
+    fn matches_len(world: &'w World) -> Option<usize> {
+        let component_storage = world.get_component_storage::<A>().unwrap();
+        Some(component_storage.entity_id_to_component.len())
+    }
 }
 
 impl<'w, A: 'static> QueryParam<'w> for Write<A> {
@@ -35,6 +42,11 @@ impl<'w, A: 'static> QueryParam<'w> for Write<A> {
         let component_storage = world.get_component_storage().unwrap();
         let component_index = component_storage.get_entity_component_index(e).unwrap();
         component_storage.components[component_index].1.borrow_mut()
+    }
+
+    fn matches_len(world: &'w World) -> Option<usize> {
+        let component_storage = world.get_component_storage::<A>().unwrap();
+        Some(component_storage.entity_id_to_component.len())
     }
 }
 
@@ -53,6 +65,11 @@ impl<'w, A: 'static> QueryParam<'w> for Option<Read<A>> {
             None
         }
     }
+
+    fn matches_len(world: &'w World) -> Option<usize> {
+        let component_storage = world.get_component_storage::<A>().unwrap();
+        Some(component_storage.entity_id_to_component.len())
+    }
 }
 
 impl<'w, A: 'static> QueryParam<'w> for With<A> {
@@ -63,9 +80,13 @@ impl<'w, A: 'static> QueryParam<'w> for With<A> {
         component_storage.entity_id_to_component.contains_key(&e)
     }
 
-
     fn fetch(_world: &'w World, _e: EntityId) -> Self::Output {
         ()
+    }
+
+    fn matches_len(world: &'w World) -> Option<usize> {
+        let component_storage = world.get_component_storage::<A>().unwrap();
+        Some(component_storage.entity_id_to_component.len())
     }
 }
 
@@ -75,7 +96,6 @@ impl<'w, A: 'static> QueryParam<'w> for Without<A> {
     fn matches(world: &'w World, e: EntityId) -> bool {
         !With::<A>::matches(world, e)
     }
-
 
     fn fetch(_world: &'w World, _e: EntityId) -> Self::Output {
         ()

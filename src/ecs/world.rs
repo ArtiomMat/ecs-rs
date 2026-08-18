@@ -112,9 +112,17 @@ impl World {
     }
 
     pub fn query<'w, T>(&'w self, system: impl Fn(T::Output)) where T: QueryParam<'w> {
+        let len = T::matches_len(self).unwrap_or(usize::MAX);
+        let mut matched_count = 0;
+
         for &e in &self.entity_validity_set {
+            if matched_count == len {
+                break;
+            }
+
             if T::matches(self, e) {
                 system(T::fetch(self, e));
+                matched_count += 1;
             }
         }
     }

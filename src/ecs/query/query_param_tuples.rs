@@ -1,3 +1,5 @@
+//! Implements usage of tuples during querying for complex multi-item queries.
+
 use crate::ecs::{EntityId, QueryParam, World};
 
 impl<'w, A, B> QueryParam<'w> for (A, B) where A: QueryParam<'w>, B: QueryParam<'w> {
@@ -10,6 +12,10 @@ impl<'w, A, B> QueryParam<'w> for (A, B) where A: QueryParam<'w>, B: QueryParam<
     fn fetch(world: &'w World, e: EntityId) -> Self::Output {
         (A::fetch(world, e), B::fetch(world, e))
     }
+
+    fn matches_len(world: &'w World) -> Option<usize> {
+        A::matches_len(world).min(B::matches_len(world))
+    }
 }
 
 impl<'w, A, B, C> QueryParam<'w> for (A, B, C) where A: QueryParam<'w>, B: QueryParam<'w>, C: QueryParam<'w> {
@@ -21,5 +27,9 @@ impl<'w, A, B, C> QueryParam<'w> for (A, B, C) where A: QueryParam<'w>, B: Query
 
     fn fetch(world: &'w World, e: EntityId) -> Self::Output {
         (A::fetch(world, e), B::fetch(world, e), C::fetch(world, e))
+    }
+
+    fn matches_len(world: &'w World) -> Option<usize> {
+        A::matches_len(world).min(B::matches_len(world)).min(C::matches_len(world))
     }
 }

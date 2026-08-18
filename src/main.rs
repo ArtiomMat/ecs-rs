@@ -47,36 +47,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     world.add_component(enemy_b, Health(2.0))?;
     world.add_component(enemy_b, Glyph('b'))?;
 
-    // world.query::<(&Health, &PlayerTag)>(|(hp, _)| {
-    //     println!("Player {}", hp.0);
-    // });
-
     world.query::<(Option<ecs::Read<Glyph>>, ecs::Read<Health>, ecs::With<Transform>)>(|(glyph, hp, _)| {
         println!("Enemy {} {}", glyph.map(|x| x.clone()).unwrap_or(Glyph('!')).0, hp.0);
     });
-
-
-    // for i in 0..10 {
-    //     let enemy = world.create_entity();
-    //     world.add_entity_component(enemy, EnemyTag)?;
-    //     world.add_entity_component(enemy, Health(1.0))?;
-    //     world.add_entity_component(
-    //         enemy,
-    //         Transform {
-    //             position: [1.0, 2.0, 3.0],
-    //             rotation: [0.0, 0.0, 0.0],
-    //         },
-    //     )?;
-    // }
-
-    // let query = Query::<(&Health, &Transform)>::new(&world);
-    // let query = QueryMut::<(&mut Health, &Transform)>::new(&mut world);
-    // let filtered_query = FilterQuery::<(&Net, &Transform), (With<PlayerTag>, Dirty<Transform>)>::new(&mut world);
-    // for (&mut health, &mut transform) in query {
-    //     transform.position[0] += health.0;
-    // }
-
-    // world.query::<(&mut Health, &Transform)>()
 
     Ok(())
 }
