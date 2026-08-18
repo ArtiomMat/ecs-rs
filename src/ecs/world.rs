@@ -113,15 +113,15 @@ impl World {
 
     fn query_using_iter<'w, T>(&'w self, iter: impl Iterator<Item = &'w EntityId>, mut system: impl FnMut(T::Output)) where T: QueryParam<'w> {
         for &e in iter {
-            if T::matches(self, e) {
+            if T::can_fetch(self, e) {
                 system(T::fetch(self, e));
             }
         }
     }
 
     pub fn query<'w, T>(&'w self, mut system: impl FnMut(T::Output)) where T: QueryParam<'w> {
-        for &e in T::guaranteed_matches_iter(self) {
-            if T::matches(self, e) {
+        for &e in T::optimized_iter(self) {
+            if T::can_fetch(self, e) {
                 system(T::fetch(self, e));
             }
         }
