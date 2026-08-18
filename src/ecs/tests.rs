@@ -1,210 +1,220 @@
-// #[cfg(test)]
-// mod tests {
-//     use crate::ecs::{EntityId, World};
+#[cfg(test)]
+mod tests {
+    use crate::ecs::{EntityId, Error, Read, With, Without, World, Write};
 
-//     struct PositionComponent([i32; 3]);
-//     struct HealthComponent(i32);
-//     struct PlayerTag;
-//     struct EnemyTag;
+    // Sample component types for testing
+    #[derive(Debug, PartialEq, Eq)]
+    struct Position {
+        x: i32,
+        y: i32,
+    }
 
-//     // is_entity_valid
+    #[derive(Debug, PartialEq, Eq)]
+    struct Velocity {
+        dx: i32,
+        dy: i32,
+    }
 
-//     #[test]
-//     fn created_entity_is_valid() {
-//         let mut world = World::new();
-//         let id = world.create_entity();
-//         assert!(world.is_entity_valid(id));
-//     }
+    #[derive(Debug, PartialEq, Eq)]
+    struct Name(String);
 
-//     #[test]
-//     fn fabricated_entity_id_is_invalid() {
-//         let world = World::new();
-//         // No entities have been created, so any EntityId is bogus.
-//         let fake = EntityId(9999);
-//         assert!(!world.is_entity_valid(fake));
-//     }
+    // ==========================================
+    // Entity Lifecycle Tests
+    // ==========================================
 
-//     #[test]
-//     fn multiple_created_entities_are_all_valid() {
-//         let mut world = World::new();
-//         let ids: Vec<_> = (0..5).map(|_| world.create_entity()).collect();
-//         for id in ids {
-//             assert!(world.is_entity_valid(id));
-//         }
-//     }
+    #[test]
+    fn test_entity_creation_and_validity() {
+        let mut world = World::new();
 
-//     #[test]
-//     fn created_entities_have_distinct_ids() {
-//         let mut world = World::new();
-//         let a = world.create_entity();
-//         let b = world.create_entity();
-//         let c = world.create_entity();
-//         assert_ne!(a, b);
-//         assert_ne!(b, c);
-//         assert_ne!(a, c);
-//     }
+        let e1 = world.create_entity();
+        let e2 = world.create_entity();
 
-//     // add_component_storage
+        assert_ne!(e1, e2);
+        assert!(world.is_entity_valid(e1));
+        assert!(world.is_entity_valid(e2));
+        assert!(!world.is_entity_valid(EntityId(9999)));
+    }
 
-//     #[test]
-//     fn add_component_storage_returns_false_on_first_registration() {
-//         let mut world = World::new();
-//         assert!(!world.add_component_storage::<HealthComponent>());
-//     }
+    // ==========================================
+    // Component Management Tests
+    // ==========================================
 
-//     #[test]
-//     fn add_component_storage_returns_true_when_already_registered() {
-//         let mut world = World::new();
-//         world.add_component_storage::<HealthComponent>();
-//         assert!(world.add_component_storage::<HealthComponent>());
-//     }
+    #[test]
+    fn test_add_and_remove_component() {
+        let mut world = World::new();
+        let e1 = world.create_entity();
 
-//     #[test]
-//     fn add_component_storage_is_independent_per_type() {
-//         let mut world = World::new();
-//         assert!(!world.add_component_storage::<HealthComponent>());
-//         // A different type should still be "new".
-//         assert!(!world.add_component_storage::<PositionComponent>());
-//         // Now both are registered.
-//         assert!(world.add_component_storage::<HealthComponent>());
-//         assert!(world.add_component_storage::<PositionComponent>());
-//     }
+        world
+            .add_component(e1, Position { x: 10, y: 20 })
+            .expect("Failed to add component");
 
-//     // invalid entity operations
+        // Verify removing existing component succeeds
+        let removed = world
+            .remove_component::<Position>(e1)
+            .expect("Failed to remove component");
+        assert_eq!(removed, Position { x: 10, y: 20 });
 
-//     #[test]
-//     fn add_component_to_invalid_entity_is_error() {
-//         let mut world = World::new();
-//         let fake = EntityId(42);
-//         assert!(world.add_component(fake, HealthComponent(10)).is_err());
-//     }
+        // Removing again should fail
+        assert!(world.remove_component::<Position>(e1).is_err());
+    }
 
-//     #[test]
-//     fn get_component_from_invalid_entity_is_error() {
-//         let world = World::new();
-//         let fake = EntityId(42);
-//         assert!(world.get_entity_component::<HealthComponent>(fake).is_err());
-//     }
+    #[test]
+    fn test_invalid_entity_operations() {
+        let mut world = World::new();
+        let invalid_e = EntityId(42);
 
-//     #[test]
-//     fn get_component_mut_from_invalid_entity_is_error() {
-//         let mut world = World::new();
-//         let fake = EntityId(42);
-//         assert!(world.get_entity_component_mut::<HealthComponent>(fake).is_err());
-//     }
+        assert!(matches!(
+            world.add_component(invalid_e, Position { x: 0, y: 0 }),
+            Err(Error::InvalidEntityId(_))
+        ));
 
-//     #[test]
-//     fn remove_component_from_invalid_entity_is_error() {
-//         let mut world = World::new();
-//         let fake = EntityId(42);
-//         assert!(world.remove_component::<HealthComponent>(fake).is_err());
-//     }
+        assert!(matches!(
+            world.remove_component::<Position>(invalid_e),
+            Err(Error::InvalidEntityId(_))
+        ));
+    }
 
-//     // unregistered component type
+    #[test]
+    fn test_add_component_storage_registration() {
+        let mut world = World::new();
 
-//     #[test]
-//     fn get_component_never_registered_is_error() {
-//         let mut world = World::new();
-//         let id = world.create_entity();
-//         // HealthComponent storage was never created for this world.
-//         assert!(world.get_entity_component::<HealthComponent>(id).is_err());
-//     }
+        // First registration returns false (newly added)
+        let existed = world.add_component_storage::<Position>();
+        assert!(!existed);
 
-//     #[test]
-//     fn remove_component_never_registered_is_error() {
-//         let mut world = World::new();
-//         let id = world.create_entity();
-//         assert!(world.remove_component::<HealthComponent>(id).is_err());
-//     }
+        // Second registration returns true (already exists)
+        let existed_again = world.add_component_storage::<Position>();
+        assert!(existed_again);
+    }
 
-//     // remove then re-add
+    // ==========================================
+    // Query System Tests
+    // ==========================================
 
-//     #[test]
-//     fn remove_and_readd_component_works() {
-//         let mut world = World::new();
-//         let id = world.create_entity();
+    #[test]
+    fn test_query_read_and_write() {
+        let mut world = World::new();
+        let e1 = world.create_entity();
 
-//         world.add_component(id, HealthComponent(50)).unwrap();
-//         let removed = world.remove_component::<HealthComponent>(id).unwrap();
-//         assert_eq!(50, removed.0);
+        world.add_component(e1, Position { x: 1, y: 1 }).unwrap();
 
-//         // After removal the slot is gone; re-adding should succeed.
-//         world.add_component(id, HealthComponent(99)).unwrap();
-//         assert_eq!(99, world.get_entity_component::<HealthComponent>(id).unwrap().0);
-//     }
+        // Test Write: update position
+        world.query::<Write<Position>>(|mut pos| {
+            pos.x += 10;
+            pos.y += 20;
+        });
 
-//     #[test]
-//     fn remove_and_readd_preserves_other_components() {
-//         let mut world = World::new();
-//         let id = world.create_entity();
+        // Test Read: verify updated values
+        let mut read_count = 0;
+        world.query::<Read<Position>>(|pos| {
+            assert_eq!(pos.x, 11);
+            assert_eq!(pos.y, 21);
+            read_count += 1;
+        });
+        assert_eq!(read_count, 1);
+    }
 
-//         world.add_component(id, HealthComponent(10)).unwrap();
-//         world.add_component(id, PositionComponent([3, 3, 3])).unwrap();
+    #[test]
+    fn test_query_with_and_without_filters() {
+        let mut world = World::new();
 
-//         world.remove_component::<HealthComponent>(id).unwrap();
+        let e_pos_vel = world.create_entity();
+        let e_pos_only = world.create_entity();
+        let e_vel_only = world.create_entity();
 
-//         // PositionComponent must be untouched.
-//         assert_eq!(
-//             [3, 3, 3],
-//             world.get_entity_component::<PositionComponent>(id).unwrap().0
-//         );
+        world
+            .add_component(e_pos_vel, Position { x: 0, y: 0 })
+            .unwrap();
+        world
+            .add_component(e_pos_vel, Velocity { dx: 1, dy: 1 })
+            .unwrap();
 
-//         world.add_component(id, HealthComponent(20)).unwrap();
-//         assert_eq!(20, world.get_entity_component::<HealthComponent>(id).unwrap().0);
-//     }
+        world
+            .add_component(e_pos_only, Position { x: 5, y: 5 })
+            .unwrap();
 
-//     // disjoint component sets
+        world
+            .add_component(e_vel_only, Velocity { dx: -1, dy: -1 })
+            .unwrap();
 
-//     #[test]
-//     fn entities_with_disjoint_components_do_not_interfere() {
-//         let mut world = World::new();
+        // Query entities with Position but WITHOUT Velocity
+        let mut results = Vec::new();
+        world.query::<(Read<Position>, Without<Velocity>)>(|(pos, _)| {
+            results.push((pos.x, pos.y));
+        });
 
-//         let player = world.create_entity();
-//         let enemy = world.create_entity();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0], (5, 5));
 
-//         world.add_component(player, PlayerTag).unwrap();
-//         world.add_component(enemy, EnemyTag).unwrap();
-//         world.add_component(player, HealthComponent(100)).unwrap();
-//         world.add_component(enemy, PositionComponent([5, 0, 0])).unwrap();
+        // Query entities WITH Velocity
+        let mut vel_count = 0;
+        world.query::<With<Velocity>>(|_| {
+            vel_count += 1;
+        });
+        assert_eq!(vel_count, 2);
+    }
 
-//         // Player has no PositionComponent.
-//         assert!(world.get_entity_component::<PositionComponent>(player).is_err());
-//         // Enemy has no HealthComponent.
-//         assert!(world.get_entity_component::<HealthComponent>(enemy).is_err());
-//         // Each entity still has its own data intact.
-//         assert_eq!(100, world.get_entity_component::<HealthComponent>(player).unwrap().0);
-//         assert_eq!([5, 0, 0], world.get_entity_component::<PositionComponent>(enemy).unwrap().0);
-//     }
+    #[test]
+    fn test_query_optional_component() {
+        let mut world = World::new();
 
-//     // get_entity_component_mut
+        let e1 = world.create_entity();
+        let e2 = world.create_entity();
 
-//     #[test]
-//     fn mutation_via_get_mut_is_visible_on_next_get() {
-//         let mut world = World::new();
-//         let id = world.create_entity();
+        world
+            .add_component(e1, Position { x: 10, y: 10 })
+            .unwrap();
+        world
+            .add_component(e1, Name("Hero".to_string()))
+            .unwrap();
 
-//         world.add_component(id, PositionComponent([0, 0, 0])).unwrap();
+        world
+            .add_component(e2, Position { x: 20, y: 20 })
+            .unwrap();
 
-//         world.get_entity_component_mut::<PositionComponent>(id).unwrap().0 = [7, 8, 9];
+        let mut counts = (0, 0); // (with_name, without_name)
 
-//         assert_eq!(
-//             [7, 8, 9],
-//             world.get_entity_component::<PositionComponent>(id).unwrap().0
-//         );
-//     }
+        world.query::<(Read<Position>, Option<Read<Name>>)>(|(pos, maybe_name)| {
+            if let Some(name) = maybe_name {
+                assert_eq!(pos.x, 10);
+                assert_eq!(name.0, "Hero");
+                counts.0 += 1;
+            } else {
+                assert_eq!(pos.x, 20);
+                counts.1 += 1;
+            }
+        });
 
-//     #[test]
-//     fn mutation_on_one_entity_does_not_affect_another() {
-//         let mut world = World::new();
-//         let a = world.create_entity();
-//         let b = world.create_entity();
+        assert_eq!(counts, (1, 1));
+    }
 
-//         world.add_component(a, HealthComponent(10)).unwrap();
-//         world.add_component(b, HealthComponent(20)).unwrap();
+    #[test]
+    fn test_multi_component_tuple_query() {
+        let mut world = World::new();
 
-//         world.get_entity_component_mut::<HealthComponent>(a).unwrap().0 = 99;
+        let e1 = world.create_entity();
+        let e2 = world.create_entity();
 
-//         assert_eq!(99, world.get_entity_component::<HealthComponent>(a).unwrap().0);
-//         assert_eq!(20, world.get_entity_component::<HealthComponent>(b).unwrap().0);
-//     }
-// }
+        world.add_component(e1, Position { x: 1, y: 2 }).unwrap();
+        world.add_component(e1, Velocity { dx: 3, dy: 4 }).unwrap();
+        world
+            .add_component(e1, Name("Entity1".to_string()))
+            .unwrap();
+
+        // e2 misses Velocity, so it shouldn't match a 3-tuple requiring all three
+        world.add_component(e2, Position { x: 10, y: 20 }).unwrap();
+        world
+            .add_component(e2, Name("Entity2".to_string()))
+            .unwrap();
+
+        let mut matched = 0;
+        world.query::<(Read<Position>, Read<Velocity>, Read<Name>)>((|(pos, vel, name)| {
+            assert_eq!(pos.x, 1);
+            assert_eq!(vel.dx, 3);
+            assert_eq!(name.0, "Entity1");
+            matched += 1;
+        }));
+
+        assert_eq!(matched, 1);
+    }
+}

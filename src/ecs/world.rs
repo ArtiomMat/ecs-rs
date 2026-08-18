@@ -111,7 +111,7 @@ impl World {
             .ok_or(Error::InvalidWorldComponent(std::any::type_name::<C>()))
     }
 
-    pub fn query<'w, T>(&'w self, system: impl Fn(T::Output)) where T: QueryParam<'w> {
+    pub fn query<'w, T>(&'w self, mut system: impl FnMut(T::Output)) where T: QueryParam<'w> {
         let len = T::matches_len(self).unwrap_or(usize::MAX);
         let mut matched_count = 0;
 

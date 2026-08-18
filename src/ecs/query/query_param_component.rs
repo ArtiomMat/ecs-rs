@@ -66,9 +66,8 @@ impl<'w, A: 'static> QueryParam<'w> for Option<Read<A>> {
         }
     }
 
-    fn matches_len(world: &'w World) -> Option<usize> {
-        let component_storage = world.get_component_storage::<A>().unwrap();
-        Some(component_storage.entity_id_to_component.len())
+    fn matches_len(_world: &'w World) -> Option<usize> {
+        None // Unbounded
     }
 }
 
@@ -99,5 +98,9 @@ impl<'w, A: 'static> QueryParam<'w> for Without<A> {
 
     fn fetch(_world: &'w World, _e: EntityId) -> Self::Output {
         ()
+    }
+
+    fn matches_len(_world: &'w World) -> Option<usize> {
+        None // Unbounded
     }
 }
