@@ -1,17 +1,17 @@
 use std::any::{Any};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::ecs::QueryParam;
 
-use super::component_storage::{ComponentStorageStrategy, ComponentsStorage};
+use super::component_storage::ComponentsStorage;
 use super::error::Error;
 use super::id_types::{ComponentId, EntityId};
 
 pub struct World {
     /// `dyn Any` is `ComponentStorage<C>`
     pub(super) component_storage_vecs: HashMap<ComponentId, Box<dyn Any>>,
-    pub(super) entity_validity_set: HashSet<EntityId>,
+    pub(super) entity_validity_set: BTreeSet<EntityId>,
     pub(super) entity_counter: AtomicUsize,
 }
 
@@ -19,7 +19,7 @@ impl World {
     pub fn new() -> Self {
         Self {
             component_storage_vecs: HashMap::new(),
-            entity_validity_set: HashSet::new(),
+            entity_validity_set: BTreeSet::new(),
             entity_counter: 0.into(),
         }
     }
@@ -52,17 +52,6 @@ impl World {
 
     //     let component_storage = self.get_component_storage::<C>()?;
     //     Ok(&component_storage.components[component_index].1)
-    // }
-
-    // /// Mutable [`Self::get_entity_component`].
-    // pub fn get_entity_component_mut<C: 'static>(
-    //     &mut self,
-    //     entity_id: EntityId,
-    // ) -> Result<&mut C, Error> {
-    //     let component_index = self.get_entity_component_index::<C>(entity_id)?;
-
-    //     let component_storage = self.get_component_storage_mut::<C>()?;
-    //     Ok(&mut component_storage.components[component_index].1)
     // }
 
     /// Add a component of type `C` to the entity.
@@ -124,8 +113,8 @@ impl World {
 
     pub fn query<'w, T>(&'w self, system: impl Fn(T::Output)) where T: QueryParam<'w> {
         for &e in &self.entity_validity_set {
-            if let Some(index) = T::index(self, e) {
-                system(T::fetch(self, index));
+            if let Some(_) = T::index(self, e) {
+                system(T::fetch(self, e));
             }
         }
     }

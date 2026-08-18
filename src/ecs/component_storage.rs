@@ -1,15 +1,8 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-use crate::ecs::bitvec::BitVec;
-
 use super::error::Error;
 use super::id_types::EntityId;
-
-pub enum ComponentStorageStrategy {
-    SparseSet,
-    Archetypes,
-}
 
 pub(super) struct ComponentsStorage<C: 'static> {
     /// A vector of pairs of entity id and the respective component data
@@ -25,16 +18,6 @@ impl<C> ComponentsStorage<C> {
             entity_id_to_component: HashMap::new(),
         }
     }
-
-    /// Get the component that belongs to this entity.
-    // pub(super) fn get_entity_component(&self, entity_id: EntityId) -> &C {
-    //     &(self.components[self.entity_id_to_component[&entity_id]].1)
-    // }
-
-    // /// Mutable [`Self::get_entity_component`]
-    // pub(super) fn get_entity_component_mut(&mut self, entity_id: EntityId) -> &mut C {
-    //     &mut (self.components[self.entity_id_to_component[&entity_id]].1)
-    // }
 
     /// Add the `component` to this entity.
     pub(super) fn add_component(&mut self, entity_id: EntityId, component: C) -> Result<(), Error> {

@@ -7,8 +7,8 @@ use super::{World, ComponentsStorage};
 pub trait QueryParam<'w> {
     type Output;
 
-    fn index(world: &'w World, e: EntityId) -> Option<usize>;
-    fn fetch(world: &'w World, index: usize) -> Self::Output;
+    fn index(world: &'w World, entity_id: EntityId) -> Option<usize>;
+    fn fetch(world: &'w World, entity_id: EntityId) -> Self::Output;
 }
 
 impl<'w, A: 'static> QueryParam<'w> for &A {
@@ -19,9 +19,10 @@ impl<'w, A: 'static> QueryParam<'w> for &A {
         component_storage.entity_id_to_component.get(&e).map(|x| *x)
     }
 
-    fn fetch(world: &'w World, index: usize) -> Self::Output {
+    fn fetch(world: &'w World, e: EntityId) -> Self::Output {
         let component_storage = world.get_component_storage().unwrap();
-        component_storage.components[index].1.borrow()
+        let component_index = component_storage.get_entity_component_index(e).unwrap();
+        component_storage.components[component_index].1.borrow()
     }
 }
 
@@ -33,9 +34,10 @@ impl<'w, A: 'static> QueryParam<'w> for &mut A {
         component_storage.entity_id_to_component.get(&e).map(|x| *x)
     }
 
-    fn fetch(world: &'w World, index: usize) -> Self::Output {
+    fn fetch(world: &'w World, e: EntityId) -> Self::Output {
         let component_storage = world.get_component_storage().unwrap();
-        component_storage.components[index].1.borrow_mut()
+        let component_index = component_storage.get_entity_component_index(e).unwrap();
+        component_storage.components[component_index].1.borrow_mut()
     }
 }
 
@@ -46,8 +48,8 @@ impl<'w, A, B> QueryParam<'w> for (A, B) where A: QueryParam<'w>, B: QueryParam<
         A::index(world, e).and(B::index(world, e))
     }
 
-    fn fetch(world: &'w World, index: usize) -> Self::Output {
-        (A::fetch(world, index), B::fetch(world, index))
+    fn fetch(world: &'w World, e: EntityId) -> Self::Output {
+        (A::fetch(world, e), B::fetch(world, e))
     }
 }
 
@@ -58,7 +60,7 @@ impl<'w, A, B, C> QueryParam<'w> for (A, B, C) where A: QueryParam<'w>, B: Query
         A::index(world, e).and(B::index(world, e)).and(C::index(world, e))
     }
 
-    fn fetch(world: &'w World, index: usize) -> Self::Output {
-        (A::fetch(world, index), B::fetch(world, index), C::fetch(world, index))
+    fn fetch(world: &'w World, e: EntityId) -> Self::Output {
+        (A::fetch(world, e), B::fetch(world, e), C::fetch(world, e))
     }
 }

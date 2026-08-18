@@ -27,7 +27,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let player = world.create_entity();
     world.add_component(player, PlayerTag)?;
-    world.add_component(player, Health(1.0))?;
+    world.add_component(player, Health(3.0))?;
     world.add_component(
         player,
         Transform {
@@ -36,21 +36,21 @@ fn main() -> Result<(), Box<dyn Error>> {
         },
     )?;
 
-    let enemy = world.create_entity();
-    world.add_component(enemy, EnemyTag)?;
-    world.add_component(enemy, Health(1.0))?;
-    world.add_component(enemy, Glyph('a'))?;
+    let enemy_a = world.create_entity();
+    world.add_component(enemy_a, EnemyTag)?;
+    world.add_component(enemy_a, Health(1.0))?;
+    world.add_component(enemy_a, Glyph('a'))?;
 
-    let enemy2 = world.create_entity();
-    world.add_component(enemy2, EnemyTag)?;
-    world.add_component(enemy2, Health(2.0))?;
-    world.add_component(enemy2, Glyph('b'))?;
+    let enemy_b = world.create_entity();
+    world.add_component(enemy_b, EnemyTag)?;
+    world.add_component(enemy_b, Health(2.0))?;
+    world.add_component(enemy_b, Glyph('b'))?;
 
-    world.query::<(&Health, &PlayerTag)>(|(hp, _)| {
-        println!("Player {}", hp.0);
-    });
+    // world.query::<(&Health, &PlayerTag)>(|(hp, _)| {
+    //     println!("Player {}", hp.0);
+    // });
 
-    world.query::<(&Health, &mut Glyph)>(|(hp, glyph)| {
+    world.query::<(&Health, &Glyph)>(|(hp, glyph)| {
         println!("Enemy {} {}", hp.0, glyph.0);
     });
 
