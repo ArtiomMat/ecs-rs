@@ -3,7 +3,29 @@
 //! How they work:
 //! - They match by just &&
 
-use crate::ecs::{EntityId, system_param::query::{QueryParam, World}};
+use crate::ecs::{EntityId, World, system_param::query::QueryParam};
+
+
+impl<'w> QueryParam<'w> for ()
+{
+    type Output = ();
+
+    fn can_fetch(world: &'w World, e: EntityId) -> bool {
+        true
+    }
+
+    fn fetch(world: &'w World, e: EntityId) -> Self::Output {
+        ()
+    }
+
+    fn optimized_len(world: &'w World) -> usize {
+        world.entity_validity_set.len()
+    }
+
+    fn optimized_iter(world: &'w World) -> Box<dyn Iterator<Item = &'w EntityId> + 'w> {
+        Box::new(world.entity_validity_set.iter())
+    }
+}
 
 impl<'w, A, B> QueryParam<'w> for (A, B)
 where

@@ -56,8 +56,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     //     println!("Enemy {} {}", glyph.map(|x| x.clone()).unwrap_or(Glyph('!')).0, hp.0);
     // });
 
-    let enemies_query = ecs::Query::<(ecs::Read<Health>, Option<ecs::Read<Glyph>>), (Option<ecs::Read<Glyph>>, ecs::With<Transform>)>::new(&world);
-    for (health, glyph) in enemies_query.query() {
+    let enemies_query = ecs::Query::<(&Health, Option<&Glyph>), (Option<&Glyph>, ecs::With<Transform>)>::new(&world);
+    for (health, glyph) in enemies_query.iter() {
         println!("Enemy {} {}", glyph.map(|x| x.clone()).unwrap_or(Glyph('!')).0, health.0);
     }
 

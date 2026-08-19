@@ -1,18 +1,12 @@
 //! Implements `Read`, `Write`, `With`, `Without`.
 
-use std::{
-    cell::{Ref, RefMut},
-    collections::HashMap,
-};
+use std::cell::{Ref, RefMut};
+use crate::ecs::{EntityId, World, system_param::query::QueryParam};
 
-use crate::ecs::{EntityId, system_param::query::{QueryParam, World}};
-
-pub struct Read<T>(T);
-pub struct Write<T>(T);
 pub struct With<T>(T);
 pub struct Without<T>(T);
 
-impl<'w, A: 'static> QueryParam<'w> for Read<A> {
+impl<'w, A: 'static> QueryParam<'w> for &A {
     type Output = Ref<'w, A>;
 
     fn can_fetch(world: &'w World, e: EntityId) -> bool {
@@ -37,7 +31,7 @@ impl<'w, A: 'static> QueryParam<'w> for Read<A> {
     }
 }
 
-impl<'w, A: 'static> QueryParam<'w> for Write<A> {
+impl<'w, A: 'static> QueryParam<'w> for &mut A {
     type Output = RefMut<'w, A>;
 
     fn can_fetch(world: &'w World, e: EntityId) -> bool {
@@ -62,17 +56,16 @@ impl<'w, A: 'static> QueryParam<'w> for Write<A> {
     }
 }
 
-impl<'w, A: 'static> QueryParam<'w> for Option<Read<A>> {
-    type Output = Option<Ref<'w, A>>;
+impl<'w, A: QueryParam<'w> + 'static> QueryParam<'w> for Option<A> {
+    type Output = Option<A::Output>;
 
-    fn can_fetch(world: &'w World, e: EntityId) -> bool {
-        world.get_component_storage::<A>().is_ok()
+    fn can_fetch(_world: &'w World, _entity_id: EntityId) -> bool {
+        true
     }
 
-    fn fetch(world: &'w World, e: EntityId) -> Self::Output {
-        let component_storage = world.get_component_storage().unwrap();
-        if let Ok(component_index) = component_storage.get_entity_component_index(e) {
-            Some(component_storage.components[component_index].borrow())
+    fn fetch(world: &'w World, entity_id: EntityId) -> Self::Output {
+        if A::can_fetch(world, entity_id) {
+            Some(A::fetch(world, entity_id))
         } else {
             None
         }
