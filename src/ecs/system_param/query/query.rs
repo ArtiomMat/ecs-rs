@@ -16,6 +16,10 @@ impl<'w, Driver: QueryParam<'w>, Filter: 'static + QueryParam<'w>> Query<'w, Dri
         }
     }
 
+    /// Matches against entities both `Filter` and `Driver` but only fetches `Driver`.
+    ///
+    /// Returns an iterator over all entities that matched `Driver` and `Filter` but
+    /// only yields `Driver::Output`.
     pub fn iter(&self) -> impl Iterator<Item = Driver::Output> {
         <(Driver, Filter)>::optimized_iter(self.world).filter(|&&entity_id| {
             <(Driver, Filter)>::can_fetch(self.world, entity_id)

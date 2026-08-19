@@ -5,16 +5,15 @@
 
 use crate::ecs::{EntityId, World, system_param::query::QueryParam};
 
-
 impl<'w> QueryParam<'w> for ()
 {
     type Output = ();
 
-    fn can_fetch(world: &'w World, e: EntityId) -> bool {
+    fn can_fetch(_world: &'w World, _e: EntityId) -> bool {
         true
     }
 
-    fn fetch(world: &'w World, e: EntityId) -> Self::Output {
+    fn fetch(_world: &'w World, _e: EntityId) -> Self::Output {
         ()
     }
 

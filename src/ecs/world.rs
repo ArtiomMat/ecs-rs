@@ -1,4 +1,4 @@
-use std::any::{Any, TypeId};
+use std::any::{Any, TypeId, type_name};
 use std::collections::{HashMap, HashSet};
 
 use super::component_storage::ComponentsStorage;
@@ -45,7 +45,9 @@ impl World {
             return Err(Error::InvalidEntityId(entity_id));
         }
 
-        let component_storage = self.get_component_storage::<C>()?;
+        let Some(component_storage) = self.get_component_storage::<C>() else {
+            return Err(Error::InvalidWorldComponent(type_name::<C>()));
+        };
         component_storage.get_entity_component_index(entity_id)
     }
 
@@ -70,7 +72,7 @@ impl World {
 
         self.add_component_storage::<C>();
 
-        let component_storage = self.get_component_storage_mut::<C>()?;
+        let component_storage = self.get_component_storage_mut::<C>().unwrap();
         component_storage.add_component(entity_id, component)
     }
 
@@ -80,7 +82,9 @@ impl World {
             return Err(Error::InvalidEntityId(entity_id));
         }
 
-        let component_storage = self.get_component_storage_mut::<C>()?;
+        let Some(component_storage) = self.get_component_storage_mut::<C>() else {
+            return Err(Error::InvalidWorldComponent(type_name::<C>()));
+        };
         component_storage.remove_component(entity_id)
     }
 
@@ -98,23 +102,21 @@ impl World {
     }
 
     /// Get a reference to the component storage by the component's type.
-    pub(super) fn get_component_storage<C: 'static>(&self) -> Result<&ComponentsStorage<C>, Error> {
+    pub(super) fn get_component_storage<C: 'static>(&self) -> Option<&ComponentsStorage<C>> {
         let type_id = &TypeId::of::<C>();
         self.component_storage_vecs
             .get(&type_id)
             .and_then(|cs| (*cs).downcast_ref::<ComponentsStorage<C>>())
-            .ok_or(Error::InvalidWorldComponent(std::any::type_name::<C>()))
     }
 
     /// Mutable [`Self::get_component_storage`].
     pub(super) fn get_component_storage_mut<C: 'static>(
         &mut self,
-    ) -> Result<&mut ComponentsStorage<C>, Error> {
+    ) -> Option<&mut ComponentsStorage<C>> {
         let type_id = &TypeId::of::<C>();
         self.component_storage_vecs
             .get_mut(&type_id)
             .and_then(|cs| (*cs).downcast_mut::<ComponentsStorage<C>>())
-            .ok_or(Error::InvalidWorldComponent(std::any::type_name::<C>()))
     }
 }
 
@@ -196,7 +198,7 @@ mod tests {
         // First registration: type was not previously registered -> false.
         let already_registered = world.add_component_storage::<Position>();
         assert!(!already_registered);
-        assert!(world.get_component_storage::<Position>().is_ok());
+        assert!(world.get_component_storage::<Position>().is_some());
 
         // Second registration of the same type: already present -> true.
         let already_registered_again = world.add_component_storage::<Position>();
@@ -209,10 +211,10 @@ mod tests {
         world.add_component_storage::<Position>();
         world.add_component_storage::<Velocity>();
 
-        assert!(world.get_component_storage::<Position>().is_ok());
-        assert!(world.get_component_storage::<Velocity>().is_ok());
+        assert!(world.get_component_storage::<Position>().is_some());
+        assert!(world.get_component_storage::<Velocity>().is_some());
         // Name was never registered.
-        assert!(world.get_component_storage::<Name>().is_err());
+        assert!(world.get_component_storage::<Name>().is_none());
     }
 
     // ---- get_component_storage / get_component_storage_mut ------------
@@ -221,14 +223,14 @@ mod tests {
     fn get_component_storage_errors_when_unregistered() {
         let world = World::new();
         let result = world.get_component_storage::<Position>();
-        assert!(matches!(result, Err(Error::InvalidWorldComponent(_))));
+        assert!(result.is_none());
     }
 
     #[test]
     fn get_component_storage_mut_errors_when_unregistered() {
         let mut world = World::new();
         let result = world.get_component_storage_mut::<Position>();
-        assert!(matches!(result, Err(Error::InvalidWorldComponent(_))));
+        assert!(result.is_none());
     }
 
     // ---- add_component --------------------------------------------------
@@ -248,13 +250,13 @@ mod tests {
         let entity = world.create_entity();
 
         // No explicit add_component_storage call beforehand.
-        assert!(world.get_component_storage::<Position>().is_err());
+        assert!(world.get_component_storage::<Position>().is_none());
 
         world
             .add_component(entity, Position { x: 0.0, y: 0.0 })
             .unwrap();
 
-        assert!(world.get_component_storage::<Position>().is_ok());
+        assert!(world.get_component_storage::<Position>().is_some());
     }
 
     #[test]
@@ -281,9 +283,9 @@ mod tests {
             .add_component(entity, Name("Player".to_string()))
             .unwrap();
 
-        assert!(world.get_component_storage::<Position>().is_ok());
-        assert!(world.get_component_storage::<Velocity>().is_ok());
-        assert!(world.get_component_storage::<Name>().is_ok());
+        assert!(world.get_component_storage::<Position>().is_some());
+        assert!(world.get_component_storage::<Velocity>().is_some());
+        assert!(world.get_component_storage::<Name>().is_some());
     }
 
     #[test]

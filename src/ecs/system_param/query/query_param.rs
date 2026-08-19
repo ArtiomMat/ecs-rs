@@ -11,14 +11,17 @@ pub trait QueryParam<'w> {
     /// something when given a [`World`] reference.
     type Output;
 
-    /// Tries to pick the smallest possible count of entities to iterate over.
+    /// Stage I of optimization, compared against other `optimized_len()`s within a single query.
     ///
-    /// Returns the optimized count it could pick.
+    /// Returns the smallest possible count of entities to iterate over given
+    /// the information this query parameter is exposed to.
     fn optimized_len(world: &'w World) -> usize;
 
-    /// Tries to pick the smallest possible iterator of entity IDs to iterate over.
+    /// Stage II of optimization, after findining minimal `optimized_len()` we call this on its
+    /// repsective query parameter.
     ///
-    /// Returns the optimized entity ID iterator it managed to pick.
+    /// Returns the the smallest possible iterator of entity IDs to iterate over given
+    /// the information this query parameter is exposed to.
     fn optimized_iter(world: &'w World) -> Box<dyn Iterator<Item = &'w EntityId> + 'w>;
 
     /// Returns if we can fetch whatever the `QueryParam` represents
