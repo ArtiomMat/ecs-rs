@@ -1,7 +1,4 @@
 //! Implements usage of tuples during querying for complex multi-item queries.
-//!
-//! How they work:
-//! - They match by just &&
 
 use crate::ecs::{EntityId, World, system_param::query::QueryParam};
 
@@ -29,7 +26,7 @@ impl<'w> QueryParam<'w> for ()
 impl<'w, A, B> QueryParam<'w> for (A, B)
 where
     A: QueryParam<'w>,
-    B: QueryParam<'w> + 'static,
+    B: QueryParam<'w>,
 {
     type Output = (A::Output, B::Output);
 
