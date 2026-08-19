@@ -14,9 +14,15 @@ struct PlayerTag;
 struct EnemyTag;
 
 /*
-fn damage_system(
-    enemies: Query<(&Glyph, Transform), With<EnemyTag>>,
-    players: Query<(&mut Health, &Transform), With<PlayerTag>>
+struct DamageSystemLocal {
+    tick: usize,
+}
+
+fn move_enemies_system(
+    enemies: Entities<(&Glyph, &mut Transform), With<EnemyTag>>,
+    players: Entities<(&Glyph, &Transform), (With<PlayerTag>, Without<Invisible>)>,
+    resource: Resource<Option<&mut Dungeon>>,
+    local: Local<DamageSystemLocal>,
 ) {
 
 }
@@ -24,6 +30,13 @@ fn damage_system(
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut world = ecs::World::new();
+
+    /*
+    world
+        .begin_frame()
+        .add_system(move_enemies_system)
+        .execute();
+    */
 
     world.add_component_storage::<Health>();
     world.add_component_storage::<Transform>();
