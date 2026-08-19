@@ -1,5 +1,7 @@
 use std::error::Error;
 
+use crate::ecs::EntityId;
+
 mod ecs;
 
 struct Health(f32);
@@ -69,9 +71,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     //     println!("Enemy {} {}", glyph.map(|x| x.clone()).unwrap_or(Glyph('!')).0, hp.0);
     // });
 
-    let enemies_query = ecs::Query::<(&Health, Option<&Glyph>), (Option<&Glyph>, ecs::With<Transform>)>::new(&world);
-    for (health, glyph) in enemies_query.iter() {
-        println!("Enemy {} {}", glyph.map(|x| x.clone()).unwrap_or(Glyph('!')).0, health.0);
+    let enemies_query = ecs::Query::<(EntityId, &Health, Option<&Glyph>), (Option<&Glyph>, ecs::Without<Transform>)>::new(&world);
+    for (entity_id, health, glyph) in enemies_query.iter() {
+        println!("Enemy({}): {} {}", entity_id, glyph.map(|x| x.clone()).unwrap_or(Glyph('!')).0, health.0);
     }
 
     Ok(())
