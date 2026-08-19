@@ -6,7 +6,7 @@ use super::entity_id::EntityId;
 use super::error::Error;
 
 pub struct World {
-    /// `dyn Any` is `ComponentStorage<C>`
+    /// `dyn Any` is a [`ComponentsStorage`]
     pub(super) component_storage_vecs: HashMap<TypeId, Box<dyn Any>>,
     pub(super) entity_validity_set: HashSet<EntityId>,
     pub(super) entity_counter: usize,
