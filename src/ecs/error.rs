@@ -1,4 +1,4 @@
-use super::id_types::EntityId;
+use super::entity_id::EntityId;
 
 #[derive(Debug)]
 pub enum Error {

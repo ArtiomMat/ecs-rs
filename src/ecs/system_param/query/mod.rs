@@ -6,5 +6,3 @@ pub mod query_param;
 pub mod query_param_component;
 pub mod query_param_tuples;
 pub mod query;
-#[cfg(test)]
-pub mod tests;

@@ -11,23 +11,23 @@ impl<'w, A: 'static> QueryParam<'w> for &A {
 
     fn can_fetch(world: &'w World, e: EntityId) -> bool {
         let component_storage = world.get_component_storage::<A>().unwrap();
-        component_storage.entity_id_to_component.contains_key(&e)
+        component_storage.entity_id_to_item.contains_key(&e)
     }
 
     fn fetch(world: &'w World, e: EntityId) -> Self::Output {
         let component_storage = world.get_component_storage().unwrap();
         let component_index = component_storage.get_entity_component_index(e).unwrap();
-        component_storage.components[component_index].borrow()
+        component_storage.items[component_index].component.borrow()
     }
 
     fn optimized_len(world: &'w World) -> usize {
         let component_storage = world.get_component_storage::<A>().unwrap();
-        component_storage.entity_id_to_component.len()
+        component_storage.len()
     }
 
     fn optimized_iter(world: &'w World) -> Box<dyn Iterator<Item = &'w EntityId> + 'w> {
         let component_storage = world.get_component_storage::<A>().unwrap();
-        Box::new(component_storage.entity_ids.iter())
+        Box::new(component_storage.items.iter().map(|c| &c.entity_id))
     }
 }
 
@@ -36,23 +36,23 @@ impl<'w, A: 'static> QueryParam<'w> for &mut A {
 
     fn can_fetch(world: &'w World, e: EntityId) -> bool {
         let component_storage = world.get_component_storage::<A>().unwrap();
-        component_storage.entity_id_to_component.contains_key(&e)
+        component_storage.entity_id_to_item.contains_key(&e)
     }
 
     fn fetch(world: &'w World, e: EntityId) -> Self::Output {
         let component_storage = world.get_component_storage().unwrap();
         let component_index = component_storage.get_entity_component_index(e).unwrap();
-        component_storage.components[component_index].borrow_mut()
+        component_storage.items[component_index].component.borrow_mut()
     }
 
     fn optimized_len(world: &'w World) -> usize {
         let component_storage = world.get_component_storage::<A>().unwrap();
-        component_storage.entity_id_to_component.len()
+        component_storage.len()
     }
 
     fn optimized_iter(world: &'w World) -> Box<dyn Iterator<Item = &'w EntityId> + 'w> {
         let component_storage = world.get_component_storage::<A>().unwrap();
-        Box::new(component_storage.entity_ids.iter())
+        Box::new(component_storage.items.iter().map(|c| &c.entity_id))
     }
 }
 
@@ -85,7 +85,7 @@ impl<'w, A: 'static> QueryParam<'w> for With<A> {
 
     fn can_fetch(world: &'w World, e: EntityId) -> bool {
         let component_storage = world.get_component_storage::<A>().unwrap();
-        component_storage.entity_id_to_component.contains_key(&e)
+        component_storage.entity_id_to_item.contains_key(&e)
     }
 
     fn fetch(_world: &'w World, _e: EntityId) -> Self::Output {
@@ -94,12 +94,12 @@ impl<'w, A: 'static> QueryParam<'w> for With<A> {
 
     fn optimized_len(world: &'w World) -> usize {
         let component_storage = world.get_component_storage::<A>().unwrap();
-        component_storage.entity_id_to_component.len()
+        component_storage.len()
     }
 
     fn optimized_iter(world: &'w World) -> Box<dyn Iterator<Item = &'w EntityId> + 'w> {
         let component_storage = world.get_component_storage::<A>().unwrap();
-        Box::new(component_storage.entity_ids.iter())
+        Box::new(component_storage.items.iter().map(|c| &c.entity_id))
     }
 }
 
