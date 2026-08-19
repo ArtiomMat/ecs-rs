@@ -21,8 +21,8 @@ struct DamageSystemLocal {
 }
 
 fn move_enemies_system(
-    enemies: Entities<(&Glyph, &mut Transform), With<EnemyTag>>,
-    players: Entities<(&Glyph, &Transform), (With<PlayerTag>, Without<Invisible>)>,
+    enemies: Query<(&Glyph, &mut Transform), With<EnemyTag>>,
+    players: Query<(&Glyph, &Transform), (With<PlayerTag>, Without<Invisible>)>,
     resource: Resource<Option<&mut Dungeon>>,
     local: Local<DamageSystemLocal>,
 ) {
