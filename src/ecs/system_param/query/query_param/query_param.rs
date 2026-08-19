@@ -1,11 +1,21 @@
 use crate::ecs::{EntityId, World};
 
+/// Similar conceptually to `SystemParam` but used as parameters
+/// in `Query`.
+///
+/// `Query<Driver, Filter>` requires that `Driver` and `Filter`
+/// are `QueryParam` bound.
+///
+/// The idea is that `Query` is allowed to look
+/// like this:
+/// ```
+/// Query<(&Glyph, &mut Transform), With<EnemyTag>>
+/// ```
+///
+/// E.g. `&T`, `&mut T`, `(T: QueryParam, U: QueryParam)`, etc.
+/// all implement `QueryParam`.
 pub trait QueryParam<'w> {
     /// This is the more abstract part.
-    ///
-    /// A query parameter can fetch something, that something can be
-    /// a mutable reference to a component of an entity, it can be
-    /// a resource, and others, even combinations via tuples.
     ///
     /// This is essentially the heart of `QueryParam`, to fetch
     /// something when given a [`World`] reference.

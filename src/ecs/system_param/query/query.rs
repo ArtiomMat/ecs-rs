@@ -1,5 +1,5 @@
 use std::marker::PhantomData;
-use crate::ecs::{World, query::QueryParam};
+use crate::ecs::{World, query::QueryParam, system_param::system_param::SystemParam};
 
 pub struct Query<'w, Driver: QueryParam<'w>, Filter: QueryParam<'w>> {
     world: &'w World,
@@ -7,12 +7,18 @@ pub struct Query<'w, Driver: QueryParam<'w>, Filter: QueryParam<'w>> {
     _phantom_filter: PhantomData<Filter>,
 }
 
+impl<'w, Driver: QueryParam<'w>, Filter: 'static + QueryParam<'w>> SystemParam<'w> for Query<'w, Driver, Filter> {
+    fn fetch(world: &'w World) -> Self {
+        Self::new(world)
+    }
+}
+
 impl<'w, Driver: QueryParam<'w>, Filter: 'static + QueryParam<'w>> Query<'w, Driver, Filter> {
     pub fn new(world: &'w World) -> Self {
         Self {
             world,
-            _phantom_driver: Default::default(),
-            _phantom_filter: Default::default()
+            _phantom_driver: PhantomData,
+            _phantom_filter: PhantomData
         }
     }
 
