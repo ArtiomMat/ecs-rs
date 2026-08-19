@@ -9,7 +9,6 @@ pub mod id_types;
 pub mod component_storage;
 pub mod world;
 pub mod system_param;
-mod bitvec;
 
 #[cfg(test)]
 mod tests;
