@@ -13,9 +13,14 @@ struct Glyph(char);
 struct PlayerTag;
 struct EnemyTag;
 
-struct Animal {
+/*
+fn damage_system(
+    enemies: Query<(&Glyph, Transform), With<EnemyTag>>,
+    players: Query<(&mut Health, &Transform), With<PlayerTag>>
+) {
 
 }
+*/
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut world = ecs::World::new();
@@ -47,9 +52,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     world.add_component(enemy_b, Health(2.0))?;
     world.add_component(enemy_b, Glyph('b'))?;
 
-    world.query::<(Option<ecs::Read<Glyph>>, ecs::Read<Health>, ecs::With<Transform>)>(|(glyph, hp, _)| {
-        println!("Enemy {} {}", glyph.map(|x| x.clone()).unwrap_or(Glyph('!')).0, hp.0);
-    });
+    // world.query::<((ecs::Read<Health>, Option<ecs::Read<Glyph>>), (Option<ecs::Read<Glyph>>, ecs::With<Transform>))>(|((hp, glyph), _)| {
+    //     println!("Enemy {} {}", glyph.map(|x| x.clone()).unwrap_or(Glyph('!')).0, hp.0);
+    // });
+
+    let enemies_query = ecs::Query::<(ecs::Read<Health>, Option<ecs::Read<Glyph>>), (Option<ecs::Read<Glyph>>, ecs::With<Transform>)>::new(&world);
+    for (health, glyph) in enemies_query.query() {
+        println!("Enemy {} {}", glyph.map(|x| x.clone()).unwrap_or(Glyph('!')).0, health.0);
+    }
 
     Ok(())
 }

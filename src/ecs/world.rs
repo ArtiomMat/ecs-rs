@@ -2,7 +2,7 @@ use std::any::{Any};
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use crate::ecs::QueryParam;
+use crate::ecs::system_param::query::QueryParam;
 
 use super::component_storage::ComponentsStorage;
 use super::error::Error;
@@ -109,21 +109,5 @@ impl World {
             .get_mut(&type_id)
             .and_then(|cs| (*cs).downcast_mut::<ComponentsStorage<C>>())
             .ok_or(Error::InvalidWorldComponent(std::any::type_name::<C>()))
-    }
-
-    fn query_using_iter<'w, T>(&'w self, iter: impl Iterator<Item = &'w EntityId>, mut system: impl FnMut(T::Output)) where T: QueryParam<'w> {
-        for &e in iter {
-            if T::can_fetch(self, e) {
-                system(T::fetch(self, e));
-            }
-        }
-    }
-
-    pub fn query<'w, T>(&'w self, mut system: impl FnMut(T::Output)) where T: QueryParam<'w> {
-        for &e in T::optimized_iter(self) {
-            if T::can_fetch(self, e) {
-                system(T::fetch(self, e));
-            }
-        }
     }
 }

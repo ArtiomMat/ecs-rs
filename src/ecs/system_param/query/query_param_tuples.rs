@@ -3,7 +3,7 @@
 //! How they work:
 //! - They match by just &&
 
-use crate::ecs::{EntityId, QueryParam, World};
+use crate::ecs::{EntityId, system_param::query::{QueryParam, World}};
 
 impl<'w, A, B> QueryParam<'w> for (A, B)
 where

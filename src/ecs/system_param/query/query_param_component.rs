@@ -5,7 +5,7 @@ use std::{
     collections::HashMap,
 };
 
-use crate::ecs::{EntityId, QueryParam, World};
+use crate::ecs::{EntityId, system_param::query::{QueryParam, World}};
 
 pub struct Read<T>(T);
 pub struct Write<T>(T);
