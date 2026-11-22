@@ -9,7 +9,7 @@ pub struct Query<'w, Driver: QueryParam<'w>, Filter: QueryParam<'w>> {
 
 impl<'w, Driver: QueryParam<'w>, Filter: 'static + QueryParam<'w>> SystemParam for Query<'w, Driver, Filter> {
     type Item<'w2> = Self;
-    fn fetch<'w2>(world: &'w2 World) -> Self::Item<'w2> where 'w2: 'w {
+    fn fetch<'w2>(world: &'w2 World) -> Self::Item<'w2> where 'w2:  {
         Self {
             world,
             _phantom_driver: PhantomData,

@@ -1,13 +1,7 @@
-pub use error::*;
-pub use entity_id::*;
-pub use component_storage::*;
-pub use world::*;
-pub use system_param::*;
-pub use system::*;
+pub use world::World;
+pub use system_params::Query;
 
-pub mod error;
-pub mod entity_id;
-pub mod component_storage;
 pub mod world;
-pub mod system_param;
-pub mod system;
+pub mod entity;
+pub mod storages;
+pub mod system_params;
