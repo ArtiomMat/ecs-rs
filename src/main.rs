@@ -13,20 +13,20 @@ struct Glyph(char);
 struct PlayerTag;
 struct EnemyTag;
 
-fn check_enemy_and_player(lol: (&Glyph, &Health)) {
+fn check_enemy_and_player(lol: (&Glyph, &Glyph)) {
     println!("{:?} {:?}", lol.0, lol.1);
 }
 
 fn main() -> anyhow::Result<()> {
     let mut world = ecs::World::new();
     let e = world.spawn();
-    _ = world.insert_component(e, Health(32.0));
-    _ = world.insert_component(e, Glyph('a'));
+    world.insert_component(e, Health(32.0))?;
+    world.insert_component(e, Glyph('a'))?;
     let e2 = world.spawn();
-    _ = world.insert_component(e2, Health(33.0));
-    _ = world.insert_component(e2, Glyph('b'));
+    world.insert_component(e2, Health(33.0))?;
+    world.insert_component(e2, Glyph('b'))?;
 
-    world.run_system::<_, ecs::Query<(&Glyph, &Health)>>(check_enemy_and_player, e);
+    world.run_system::<_, ecs::Query<(&Glyph, &Glyph)>>(check_enemy_and_player, e2);
 
     Ok(())
 }

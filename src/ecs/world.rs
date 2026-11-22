@@ -99,6 +99,21 @@ impl World {
         storage.get(entity).ok_or(Error::ComponentNotFound(entity))
     }
 
+    pub fn get_component_mut<T: 'static>(
+        &mut self,
+        entity: Entity,
+    ) -> Result<&mut T, Error> {
+        if !self.entities_set.contains(*entity) {
+            return Err(Error::Despawned(entity));
+        }
+
+        let tick = self.tick_count;
+
+        let storage = self.get_component_storage_mut::<T>();
+
+        storage.get_mut(entity, tick).ok_or(Error::ComponentNotFound(entity))
+    }
+
     pub fn run_system<'w, F, A>(&'w mut self, sys: F, entity: Entity) where F: FnOnce(A::Item<'w>), A: SystemParam {
         {
             let cell = unsafe { UnsafeWorldCell::new(self) };

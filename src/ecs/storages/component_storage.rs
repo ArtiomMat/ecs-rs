@@ -45,7 +45,7 @@ impl<T> ComponentStorage<T> {
         Some(&self.slots[i].component)
     }
 
-    pub fn get_mut(&mut self, entity: Entity, tick: usize) -> Option<&T> {
+    pub fn get_mut(&mut self, entity: Entity, tick: usize) -> Option<&mut T> {
         let i = *self.entity_to_slot.get(&entity)?;
         self.slots[i].write_tick = Some(tick);
         Some(&mut self.slots[i].component)
