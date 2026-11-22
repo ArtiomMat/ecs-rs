@@ -30,6 +30,13 @@ fn move_enemies_system(
 }
 */
 
+fn move_enemies_system(
+    enemies: ecs::Query<(&Glyph, &mut Transform), ecs::With<EnemyTag>>,
+    // players: ecs::Query<(&Glyph, &Transform), ecs::With<PlayerTag>>,
+) {
+
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let mut world = ecs::World::new();
 
@@ -40,13 +47,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .execute();
     */
 
-    world.add_component_storage::<Health>();
-    world.add_component_storage::<Transform>();
-    world.add_component_storage::<Glyph>();
-    world.add_component_storage::<PlayerTag>();
-    world.add_component_storage::<EnemyTag>();
-
-    let player = world.create_entity();
+    let player = world.spawn();
     world.add_component(player, PlayerTag)?;
     world.add_component(player, Health(3.0))?;
     world.add_component(
@@ -57,12 +58,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         },
     )?;
 
-    let enemy_a = world.create_entity();
+    let enemy_a = world.spawn();
     world.add_component(enemy_a, EnemyTag)?;
     world.add_component(enemy_a, Health(1.0))?;
     world.add_component(enemy_a, Glyph('a'))?;
 
-    let enemy_b = world.create_entity();
+    let enemy_b = world.spawn();
     world.add_component(enemy_b, EnemyTag)?;
     world.add_component(enemy_b, Health(2.0))?;
     world.add_component(enemy_b, Glyph('b'))?;
@@ -71,10 +72,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     //     println!("Enemy {} {}", glyph.map(|x| x.clone()).unwrap_or(Glyph('!')).0, hp.0);
     // });
 
-    let enemies_query = ecs::Query::<(EntityId, &Health, Option<&Glyph>), (Option<&Glyph>, ecs::Without<Transform>)>::new(&world);
-    for (entity_id, health, glyph) in enemies_query.iter() {
-        println!("Enemy({}): {} {}", entity_id, glyph.map(|x| x.clone()).unwrap_or(Glyph('!')).0, health.0);
-    }
+    world.run_system(move_enemies_system);
+
+
+    // let enemies_query = ecs::Query::<(EntityId, &Health, Option<&Glyph>), (Option<&Glyph>, ecs::Without<Transform>)>::new(&world);
+    // for (entity_id, health, glyph) in enemies_query.iter() {
+    //     println!("Enemy({}): {} {}", entity_id, glyph.map(|x| x.clone()).unwrap_or(Glyph('!')).0, health.0);
+    // }
 
     Ok(())
 }

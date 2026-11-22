@@ -2,15 +2,100 @@ use std::marker::PhantomData;
 
 use crate::ecs::{World, system_param::system_param::SystemParam};
 
-impl<'w, A> SystemParam<'w> for (A,) where A: SystemParam<'w> {
-    fn fetch(world: &'w World) -> Self {
-        Self::fetch(world)
+pub trait System {
+    fn run(&mut self, world: &World);
+}
+
+// Necessary because if raw FnMut is used then we have unconstrained errors.
+//
+// This is yet another hack to make variadics work in Rust.
+pub struct SystemFn<F, Params> {
+    pub function: F,
+    pub _marker: PhantomData<fn() -> Params>,
+}
+
+pub trait IntoSystemFn<Params> {
+    type Output;
+
+    fn into_system(self) -> Self::Output;
+}
+
+impl<F, A> IntoSystemFn<A> for F
+where
+    F: FnMut(A),
+    for<'w> A: SystemParam<'w>,
+{
+    type Output = SystemFn<F, A>;
+
+    fn into_system(self) -> Self::Output {
+        Self::Output {
+            function: self,
+            _marker: PhantomData,
+        }
     }
 }
 
-trait SystemParamFunction<Marker>: 'static {
-    type In: for<'w> SystemParam<'w>;
-    type Out;
+impl<F, A> System for SystemFn<F, A>
+where
+    F: FnMut(A),
+    for<'w> A: SystemParam<'w>,
+{
+    fn run(&mut self, world: &World) {
+        (self.function)(A::fetch(world))
+    }
+}
 
-    fn run<'w>(&mut self, param: Self::In);
+
+impl<F, A, B> IntoSystemFn<(A, B)> for F
+where
+    F: FnMut(A, B),
+    for<'w> A: SystemParam<'w>,
+    for<'w> B: SystemParam<'w>,
+{
+    type Output = SystemFn<F, (A, B)>;
+
+    fn into_system(self) -> Self::Output {
+        Self::Output {
+            function: self,
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<F, A, B> System for SystemFn<F, (A, B)>
+where
+    F: FnMut(A, B),
+    for<'w> A: SystemParam<'w>,
+    for<'w> B: SystemParam<'w>,
+{
+    fn run(&mut self, world: &World) {
+        (self.function)(A::fetch(world), B::fetch(world))
+    }
+}
+
+impl<F, A, B, C> From<F> for SystemFn<F, (A, B, C)>
+where
+    F: FnMut(A, B, C),
+    for<'w> A: SystemParam<'w>,
+    for<'w> B: SystemParam<'w>,
+    for<'w> C: SystemParam<'w>,
+{
+    fn from(value: F) -> Self {
+        Self {
+            function: value,
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<F, A, B, C> System for SystemFn<F, (A, B, C)>
+where
+    F: FnMut(A, B, C),
+    for<'w> A: SystemParam<'w>,
+    for<'w> B: SystemParam<'w>,
+    for<'w> C: SystemParam<'w>,
+{
+    fn run(&mut self, world: &World) {
+        (self.function)(A::fetch(world), B::fetch(world), C::fetch(world))
+    }
 }

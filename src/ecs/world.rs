@@ -1,6 +1,8 @@
 use std::any::{Any, TypeId, type_name};
 use std::collections::{HashMap, HashSet};
 
+use crate::ecs::{IntoSystemFn, System};
+
 use super::component_storage::ComponentsStorage;
 use super::entity_id::EntityId;
 use super::error::Error;
@@ -21,7 +23,7 @@ impl World {
         }
     }
 
-    pub fn create_entity(&mut self) -> EntityId {
+    pub fn spawn(&mut self) -> EntityId {
         let entity_id = EntityId(self.entity_counter);
         assert!(
             !self.entity_validity_set.contains(&entity_id),
@@ -34,14 +36,14 @@ impl World {
         entity_id
     }
 
-    pub fn is_entity_valid(&self, id: EntityId) -> bool {
+    pub fn is_valid(&self, id: EntityId) -> bool {
         self.entity_validity_set.contains(&id)
     }
 
     /// Get an index of the component in the component storage of `C`
     /// which belongs to this entity.
     fn get_entity_component_index<C: 'static>(&self, entity_id: EntityId) -> Result<usize, Error> {
-        if !self.is_entity_valid(entity_id) {
+        if !self.is_valid(entity_id) {
             return Err(Error::InvalidEntityId(entity_id));
         }
 
@@ -60,25 +62,33 @@ impl World {
     //     Ok(&component_storage.components[component_index].1)
     // }
 
+    /// Returns the component storage if already added, otherwise adds it and returns it.
+    fn get_or_add_component_storage_mut<C: 'static>(&mut self) -> &mut ComponentsStorage<C> {
+        let type_id = TypeId::of::<C>();
+        self.component_storage_vecs
+            .entry(type_id)
+            .or_insert(Box::new(ComponentsStorage::<C>::new()))
+            .downcast_mut::<ComponentsStorage<C>>()
+            .unwrap()
+    }
+
     /// Add a component of type `C` to the entity.
     pub fn add_component<C: 'static>(
         &mut self,
         entity_id: EntityId,
         component: C,
     ) -> Result<(), Error> {
-        if !self.is_entity_valid(entity_id) {
+        if !self.is_valid(entity_id) {
             return Err(Error::InvalidEntityId(entity_id));
         }
 
-        self.add_component_storage::<C>();
-
-        let component_storage = self.get_component_storage_mut::<C>().unwrap();
+        let component_storage = self.get_or_add_component_storage_mut::<C>();
         component_storage.add_component(entity_id, component)
     }
 
     /// Remove the component of type `C` the entity currently has.
     pub fn remove_component<C: 'static>(&mut self, entity_id: EntityId) -> Result<C, Error> {
-        if !self.is_entity_valid(entity_id) {
+        if !self.is_valid(entity_id) {
             return Err(Error::InvalidEntityId(entity_id));
         }
 
@@ -86,19 +96,6 @@ impl World {
             return Err(Error::InvalidWorldComponent(type_name::<C>()));
         };
         component_storage.remove_component(entity_id)
-    }
-
-    /// Returns `true` if the component was already registered.
-    /// Otherwise will register the component.
-    pub fn add_component_storage<C: 'static>(&mut self) -> bool {
-        let type_id = TypeId::of::<C>();
-        if self.component_storage_vecs.contains_key(&type_id) {
-            true
-        } else {
-            self.component_storage_vecs
-                .insert(type_id, Box::new(ComponentsStorage::<C>::new()));
-            false
-        }
     }
 
     /// Get a reference to the component storage by the component's type.
@@ -117,6 +114,10 @@ impl World {
         self.component_storage_vecs
             .get_mut(&type_id)
             .and_then(|cs| (*cs).downcast_mut::<ComponentsStorage<C>>())
+    }
+
+    pub fn run_system<M, F: IntoSystemFn<M>>(&self, f: F) where F::Output: System {
+        f.into_system().run(self)
     }
 }
 
@@ -153,16 +154,16 @@ mod tests {
     #[test]
     fn create_entity_returns_valid_entity() {
         let mut world = World::new();
-        let entity = world.create_entity();
-        assert!(world.is_entity_valid(entity));
+        let entity = world.spawn();
+        assert!(world.is_valid(entity));
     }
 
     #[test]
     fn create_entity_ids_are_unique_and_increasing() {
         let mut world = World::new();
-        let e0 = world.create_entity();
-        let e1 = world.create_entity();
-        let e2 = world.create_entity();
+        let e0 = world.spawn();
+        let e1 = world.spawn();
+        let e2 = world.spawn();
 
         assert_ne!(e0, e1);
         assert_ne!(e1, e2);
@@ -177,7 +178,7 @@ mod tests {
     #[test]
     fn unknown_entity_is_not_valid() {
         let world = World::new();
-        assert!(!world.is_entity_valid(EntityId(999)));
+        assert!(!world.is_valid(EntityId(999)));
     }
 
     #[test]
@@ -185,8 +186,8 @@ mod tests {
         let mut world_a = World::new();
         let world_b = World::new();
 
-        let entity = world_a.create_entity();
-        assert!(!world_b.is_entity_valid(entity));
+        let entity = world_a.spawn();
+        assert!(!world_b.is_valid(entity));
     }
 
     // ---- add_component_storage -----------------------------------------
@@ -195,21 +196,16 @@ mod tests {
     fn add_component_storage_registers_new_type_once() {
         let mut world = World::new();
 
-        // First registration: type was not previously registered -> false.
-        let already_registered = world.add_component_storage::<Position>();
-        assert!(!already_registered);
+        // First registration: type was not previously registered.
+        world.get_or_add_component_storage_mut::<Position>();
         assert!(world.get_component_storage::<Position>().is_some());
-
-        // Second registration of the same type: already present -> true.
-        let already_registered_again = world.add_component_storage::<Position>();
-        assert!(already_registered_again);
     }
 
     #[test]
     fn add_component_storage_is_independent_per_type() {
         let mut world = World::new();
-        world.add_component_storage::<Position>();
-        world.add_component_storage::<Velocity>();
+        world.get_or_add_component_storage_mut::<Position>();
+        world.get_or_add_component_storage_mut::<Velocity>();
 
         assert!(world.get_component_storage::<Position>().is_some());
         assert!(world.get_component_storage::<Velocity>().is_some());
@@ -238,7 +234,7 @@ mod tests {
     #[test]
     fn add_component_succeeds_for_valid_entity() {
         let mut world = World::new();
-        let entity = world.create_entity();
+        let entity = world.spawn();
 
         let result = world.add_component(entity, Position { x: 1.0, y: 2.0 });
         assert!(result.is_ok());
@@ -247,7 +243,7 @@ mod tests {
     #[test]
     fn add_component_auto_registers_storage() {
         let mut world = World::new();
-        let entity = world.create_entity();
+        let entity = world.spawn();
 
         // No explicit add_component_storage call beforehand.
         assert!(world.get_component_storage::<Position>().is_none());
@@ -271,7 +267,7 @@ mod tests {
     #[test]
     fn add_multiple_component_types_to_same_entity() {
         let mut world = World::new();
-        let entity = world.create_entity();
+        let entity = world.spawn();
 
         world
             .add_component(entity, Position { x: 1.0, y: 2.0 })
@@ -291,8 +287,8 @@ mod tests {
     #[test]
     fn add_component_same_type_to_different_entities() {
         let mut world = World::new();
-        let e1 = world.create_entity();
-        let e2 = world.create_entity();
+        let e1 = world.spawn();
+        let e2 = world.spawn();
 
         world
             .add_component(e1, Position { x: 1.0, y: 1.0 })
@@ -311,7 +307,7 @@ mod tests {
     #[test]
     fn remove_component_returns_the_component_value() {
         let mut world = World::new();
-        let entity = world.create_entity();
+        let entity = world.spawn();
         let pos = Position { x: 3.0, y: 4.0 };
 
         world.add_component(entity, pos.clone()).unwrap();
@@ -323,7 +319,7 @@ mod tests {
     #[test]
     fn remove_component_fails_for_invalid_entity() {
         let mut world = World::new();
-        world.add_component_storage::<Position>();
+        world.get_or_add_component_storage_mut::<Position>();
         let bogus = EntityId(123);
 
         let result = world.remove_component::<Position>(bogus);
@@ -333,7 +329,7 @@ mod tests {
     #[test]
     fn remove_component_fails_when_storage_never_registered() {
         let mut world = World::new();
-        let entity = world.create_entity();
+        let entity = world.spawn();
 
         // Position storage was never registered via add_component_storage
         // or add_component.
@@ -344,8 +340,8 @@ mod tests {
     #[test]
     fn remove_component_fails_when_entity_never_had_it() {
         let mut world = World::new();
-        let entity = world.create_entity();
-        world.add_component_storage::<Position>();
+        let entity = world.spawn();
+        world.get_or_add_component_storage_mut::<Position>();
 
         // Storage is registered, but this entity never got a Position.
         let result = world.remove_component::<Position>(entity);
@@ -355,7 +351,7 @@ mod tests {
     #[test]
     fn remove_component_twice_fails_second_time() {
         let mut world = World::new();
-        let entity = world.create_entity();
+        let entity = world.spawn();
         world
             .add_component(entity, Position { x: 0.0, y: 0.0 })
             .unwrap();
@@ -367,8 +363,8 @@ mod tests {
     #[test]
     fn remove_component_does_not_affect_other_entities() {
         let mut world = World::new();
-        let e1 = world.create_entity();
-        let e2 = world.create_entity();
+        let e1 = world.spawn();
+        let e2 = world.spawn();
 
         world
             .add_component(e1, Position { x: 1.0, y: 1.0 })
@@ -388,7 +384,7 @@ mod tests {
     #[test]
     fn remove_component_does_not_affect_other_component_types() {
         let mut world = World::new();
-        let entity = world.create_entity();
+        let entity = world.spawn();
 
         world
             .add_component(entity, Position { x: 1.0, y: 1.0 })
@@ -417,9 +413,9 @@ mod tests {
     #[test]
     fn remove_middle_entity_preserves_last_entity_value_via_swap_remove() {
         let mut world = World::new();
-        let e0 = world.create_entity();
-        let e1 = world.create_entity();
-        let e2 = world.create_entity(); // will be the "last" element in storage
+        let e0 = world.spawn();
+        let e1 = world.spawn();
+        let e2 = world.spawn(); // will be the "last" element in storage
 
         world
             .add_component(e0, Position { x: 0.0, y: 0.0 })
@@ -464,7 +460,7 @@ mod tests {
     #[test]
     fn remove_first_entity_preserves_all_remaining_entities_values() {
         let mut world = World::new();
-        let entities: Vec<EntityId> = (0..5).map(|_| world.create_entity()).collect();
+        let entities: Vec<EntityId> = (0..5).map(|_| world.spawn()).collect();
 
         for (i, &e) in entities.iter().enumerate() {
             world
@@ -511,7 +507,7 @@ mod tests {
         // check against swap_remove corrupting bookkeeping over multiple
         // operations (as opposed to just once).
         let mut world = World::new();
-        let entities: Vec<EntityId> = (0..6).map(|_| world.create_entity()).collect();
+        let entities: Vec<EntityId> = (0..6).map(|_| world.spawn()).collect();
         let mut expected: HashMap<EntityId, Position> = HashMap::new();
 
         for (i, &e) in entities.iter().enumerate() {
@@ -568,7 +564,7 @@ mod tests {
     #[test]
     fn get_entity_component_index_fails_for_unregistered_storage() {
         let mut world = World::new();
-        let entity = world.create_entity();
+        let entity = world.spawn();
 
         let result = world.get_entity_component_index::<Position>(entity);
         assert!(matches!(result, Err(Error::InvalidWorldComponent(_))));
@@ -577,7 +573,7 @@ mod tests {
     #[test]
     fn get_entity_component_index_succeeds_after_add() {
         let mut world = World::new();
-        let entity = world.create_entity();
+        let entity = world.spawn();
         world
             .add_component(entity, Position { x: 5.0, y: 5.0 })
             .unwrap();
@@ -594,7 +590,7 @@ mod tests {
         let mut ids = Vec::new();
 
         for _ in 0..1000 {
-            ids.push(world.create_entity());
+            ids.push(world.spawn());
         }
 
         // All unique.
@@ -603,7 +599,7 @@ mod tests {
 
         // All valid.
         for id in ids {
-            assert!(world.is_entity_valid(id));
+            assert!(world.is_valid(id));
         }
     }
 }

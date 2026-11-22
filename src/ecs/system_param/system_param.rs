@@ -7,6 +7,8 @@ use crate::ecs::World;
 ///
 /// E.g. `Query`, `Resource`, `Local`, etc. all implement
 /// [`SystemParam`].
-pub trait SystemParam<'w> {
-    fn fetch(world: &'w World) -> Self;
+///
+pub trait SystemParam {
+    type Item<'w>;
+    fn fetch<'w>(world: &'w World) -> Self::Item<'w>;
 }

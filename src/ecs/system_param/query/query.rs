@@ -7,21 +7,18 @@ pub struct Query<'w, Driver: QueryParam<'w>, Filter: QueryParam<'w>> {
     _phantom_filter: PhantomData<Filter>,
 }
 
-impl<'w, Driver: QueryParam<'w>, Filter: 'static + QueryParam<'w>> SystemParam<'w> for Query<'w, Driver, Filter> {
-    fn fetch(world: &'w World) -> Self {
-        Self::new(world)
-    }
-}
-
-impl<'w, Driver: QueryParam<'w>, Filter: 'static + QueryParam<'w>> Query<'w, Driver, Filter> {
-    pub fn new(world: &'w World) -> Self {
+impl<'w, Driver: QueryParam<'w>, Filter: 'static + QueryParam<'w>> SystemParam for Query<'w, Driver, Filter> {
+    type Item<'w2> = Self;
+    fn fetch<'w2>(world: &'w2 World) -> Self::Item<'w2> where 'w2: 'w {
         Self {
             world,
             _phantom_driver: PhantomData,
             _phantom_filter: PhantomData
         }
     }
+}
 
+impl<'w, Driver: QueryParam<'w>, Filter: 'static + QueryParam<'w>> Query<'w, Driver, Filter> {
     /// Matches against entities both `Filter` and `Driver` but only fetches `Driver`.
     ///
     /// Returns an iterator over all entities that matched `Driver` and `Filter` but
@@ -56,14 +53,14 @@ mod tests {
     fn single_component_ref_query_returns_matching_entities() {
         let mut world = World::new();
 
-        let e1 = world.create_entity();
+        let e1 = world.spawn();
         world.add_component(e1, Health(10)).unwrap();
 
-        let e2 = world.create_entity();
+        let e2 = world.spawn();
         world.add_component(e2, Health(20)).unwrap();
 
         // Entity with no Health component at all; storage for Health still exists.
-        let _e3 = world.create_entity();
+        let _e3 = world.spawn();
 
         let query = Query::<&Health, ()>::new(&world);
         let mut healths: Vec<i32> = query.iter().map(|h| h.0).collect();
@@ -76,10 +73,10 @@ mod tests {
     fn single_component_mut_query_allows_mutation() {
         let mut world = World::new();
 
-        let e1 = world.create_entity();
+        let e1 = world.spawn();
         world.add_component(e1, Health(10)).unwrap();
 
-        let e2 = world.create_entity();
+        let e2 = world.spawn();
         world.add_component(e2, Health(20)).unwrap();
 
         {
@@ -100,11 +97,11 @@ mod tests {
     fn option_query_param_returns_none_when_missing() {
         let mut world = World::new();
 
-        let e1 = world.create_entity();
+        let e1 = world.spawn();
         world.add_component(e1, Health(10)).unwrap();
         world.add_component(e1, Glyph('@')).unwrap();
 
-        let e2 = world.create_entity();
+        let e2 = world.spawn();
         world.add_component(e2, Health(20)).unwrap();
         // e2 has no Glyph.
 
@@ -125,11 +122,11 @@ mod tests {
     fn with_filter_restricts_to_entities_with_component() {
         let mut world = World::new();
 
-        let e1 = world.create_entity();
+        let e1 = world.spawn();
         world.add_component(e1, Health(10)).unwrap();
         world.add_component(e1, Transform { x: 0, y: 0 }).unwrap();
 
-        let e2 = world.create_entity();
+        let e2 = world.spawn();
         world.add_component(e2, Health(20)).unwrap();
         // e2 has no Transform.
 
@@ -143,11 +140,11 @@ mod tests {
     fn without_filter_excludes_entities_with_component() {
         let mut world = World::new();
 
-        let e1 = world.create_entity();
+        let e1 = world.spawn();
         world.add_component(e1, Health(10)).unwrap();
         world.add_component(e1, Transform { x: 0, y: 0 }).unwrap();
 
-        let e2 = world.create_entity();
+        let e2 = world.spawn();
         world.add_component(e2, Health(20)).unwrap();
         // e2 has no Transform.
 
@@ -162,18 +159,18 @@ mod tests {
         let mut world = World::new();
 
         // e1: Health + Glyph + Transform -> should match.
-        let e1 = world.create_entity();
+        let e1 = world.spawn();
         world.add_component(e1, Health(1)).unwrap();
         world.add_component(e1, Glyph('a')).unwrap();
         world.add_component(e1, Transform { x: 1, y: 1 }).unwrap();
 
         // e2: Health + Transform, no Glyph -> should match (Glyph is optional in filter).
-        let e2 = world.create_entity();
+        let e2 = world.spawn();
         world.add_component(e2, Health(2)).unwrap();
         world.add_component(e2, Transform { x: 2, y: 2 }).unwrap();
 
         // e3: Health + Glyph, no Transform -> should NOT match (fails With<Transform>).
-        let e3 = world.create_entity();
+        let e3 = world.spawn();
         world.add_component(e3, Health(3)).unwrap();
         world.add_component(e3, Glyph('c')).unwrap();
 
@@ -194,13 +191,13 @@ mod tests {
     fn three_tuple_query_param_intersects_all_three() {
         let mut world = World::new();
 
-        let e1 = world.create_entity();
+        let e1 = world.spawn();
         world.add_component(e1, Health(1)).unwrap();
         world.add_component(e1, Glyph('a')).unwrap();
         world.add_component(e1, Transform { x: 0, y: 0 }).unwrap();
 
         // Missing Transform -> excluded.
-        let e2 = world.create_entity();
+        let e2 = world.spawn();
         world.add_component(e2, Health(2)).unwrap();
         world.add_component(e2, Glyph('b')).unwrap();
 
@@ -223,8 +220,6 @@ mod tests {
         // existed; with zero entities calling create_entity is unnecessary,
         // but we still need the storage registered for `&Health` to be safe.
         // Register storage without adding any entities/components.
-        let mut world = world;
-        world.add_component_storage::<Health>();
 
         let query = Query::<&Health, ()>::new(&world);
         let results: Vec<i32> = query.iter().map(|h| h.0).collect();
