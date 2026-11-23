@@ -2,6 +2,7 @@ use std::marker::PhantomData;
 
 use crate::ecs::world::{World};
 
+/// Passed to system parameters(`Query` also passes it to its filters).
 #[derive(Clone, Copy)]
 pub struct UnsafeWorldCell<'w>(*mut World, PhantomData<&'w World>);
 

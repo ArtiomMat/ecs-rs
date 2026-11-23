@@ -10,11 +10,15 @@ pub struct Slot<T> {
 }
 
 pub struct ComponentStorage<T> {
-    entity_to_slot: HashMap<Entity, usize>,
+    pub entity_to_slot: HashMap<Entity, usize>,
     slots: Vec<Slot<T>>,
 }
 
-pub trait ComponentStorageTrait: Any {}
+pub trait UntypedComponentStorage {
+    fn remove(&mut self, entity: Entity) -> bool;
+}
+
+pub trait AnyComponentStorage: UntypedComponentStorage + Any {}
 
 impl<T> ComponentStorage<T> {
     pub fn new() -> Self {
@@ -50,4 +54,25 @@ impl<T> ComponentStorage<T> {
         self.slots[i].write_tick = Some(tick);
         Some(&mut self.slots[i].component)
     }
+
+    pub fn remove(&mut self, entity: Entity) -> Option<T> {
+        let i = self.entity_to_slot.remove(&entity)?;
+
+        // If the the removed is not last we notify entity_to_slot of the upcoming swap
+        let swapped_slot = self.slots.last().expect("entity_to_slot was not empty");
+        if swapped_slot.entity != entity {
+            self.entity_to_slot.insert(swapped_slot.entity, i);
+        }
+
+        let removed_slot = self.slots.swap_remove(i);
+        Some(removed_slot.component)
+    }
 }
+
+impl<T: 'static> UntypedComponentStorage for ComponentStorage<T> {
+    fn remove(&mut self, entity: Entity) -> bool {
+        self.remove(entity).is_some()
+    }
+}
+
+impl<T: 'static> AnyComponentStorage for ComponentStorage<T> {}

@@ -1,11 +1,18 @@
 use std::{
-    any::{Any, TypeId}, cell::{Ref, RefCell}, collections::HashMap,
+    any::{Any, TypeId},
+    cell::{Ref, RefCell},
+    collections::{HashMap, HashSet},
 };
 
 use crate::{
     ecs::{
-        entity::Entity, storages::{ComponentStorage, ComponentStorageTrait}, system_params::{system_param::SystemParam, world_ptr::UnsafeWorldCell},
-    }, mem::gen_bit_set::GenBitSet,
+        entity::Entity,
+        storages::{
+            ComponentStorage, UntypedComponentStorage, component_storage::AnyComponentStorage,
+        },
+        system_params::{system_param::SystemParam, world_ptr::UnsafeWorldCell},
+    },
+    mem::gen_bit_set::GenBitSet,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -16,10 +23,14 @@ pub enum Error {
     ComponentNotFound(Entity),
 }
 
+struct ValidEntityComponent {
+    owned_components: HashSet<TypeId>,
+}
+
 pub struct World {
     tick_count: usize,
     entities_set: GenBitSet,
-    component_storages: HashMap<TypeId, Box<dyn Any>>,
+    component_storages: HashMap<TypeId, Box<dyn AnyComponentStorage>>,
 }
 
 impl World {
@@ -41,19 +52,43 @@ impl World {
             })
             .unwrap();
 
-        Entity(gen_bit)
+        let entity = Entity(gen_bit);
+
+        self.insert_component(
+            entity,
+            ValidEntityComponent {
+                owned_components: HashSet::new(),
+            },
+        )
+        .expect("Entity already exists");
+
+        entity
     }
 
     pub fn despawn(&mut self, entity: Entity) -> Result<(), Error> {
         self.entities_set
             .release(*entity)
-            .map_err(|_| Error::Despawned(entity))
+            .map_err(|_| Error::Despawned(entity))?;
+
+        let valid_component = self
+            .remove_component::<ValidEntityComponent>(entity)
+            .expect("Exists in entities_set");
+        for type_id in valid_component.owned_components.iter() {
+            let storage: &mut dyn UntypedComponentStorage =
+                &mut **self.component_storages.get_mut(type_id).unwrap();
+            storage.remove(entity);
+        }
+
+        Ok(())
     }
 
-    fn get_component_storage_mut<T: 'static>(&mut self) -> &mut ComponentStorage<T> {
+    /// If the component storage doesn't already exist creates it. So can't error.
+    ///
+    /// Returns a reference to the component storage of components `T`.
+    pub(super) fn get_component_storage_mut<T: 'static>(&mut self) -> &mut ComponentStorage<T> {
         let type_id = TypeId::of::<T>();
 
-        let type_erased = self
+        let type_erased: &mut dyn Any = &mut **self
             .component_storages
             .entry(type_id)
             .or_insert(Box::new(ComponentStorage::<T>::new()));
@@ -61,10 +96,12 @@ impl World {
         type_erased.downcast_mut::<ComponentStorage<T>>().unwrap()
     }
 
-    fn get_component_storage<T: 'static>(&self) -> Option<&ComponentStorage<T>> {
+    /// Returns a reference to the component storage of components `T`.
+    /// May return `None` if the component storage of components `T` doesn't exist.
+    pub(super) fn get_component_storage<T: 'static>(&self) -> Option<&ComponentStorage<T>> {
         let type_id = TypeId::of::<T>();
 
-        let type_erased = self.component_storages.get(&type_id)?;
+        let type_erased: &dyn Any = &**self.component_storages.get(&type_id)?;
 
         type_erased.downcast_ref()
     }
@@ -83,26 +120,47 @@ impl World {
         let storage = self.get_component_storage_mut::<T>();
         storage.insert(entity, component, tick);
 
+        let valid_storage = self.get_component_storage_mut::<ValidEntityComponent>();
+        let valid_component = valid_storage.get_mut(entity, tick).expect("All entites have this component");
+        valid_component.owned_components.insert(TypeId::of::<T>());
+
         Ok(())
     }
 
-    pub fn get_component<T: 'static>(
-        &self,
-        entity: Entity,
-    ) -> Result<&T, Error> {
+    pub fn get_component<T: 'static>(&self, entity: Entity) -> Result<&T, Error> {
         if !self.entities_set.contains(*entity) {
             return Err(Error::Despawned(entity));
         }
 
-        let storage = self.get_component_storage::<T>().ok_or(Error::ComponentNotFound(entity))?;
+        let storage = self
+            .get_component_storage::<T>()
+            .ok_or(Error::ComponentNotFound(entity))?;
 
         storage.get(entity).ok_or(Error::ComponentNotFound(entity))
     }
 
-    pub fn get_component_mut<T: 'static>(
-        &mut self,
-        entity: Entity,
-    ) -> Result<&mut T, Error> {
+    pub fn remove_component<T: 'static>(&mut self, entity: Entity) -> Result<T, Error> {
+        if !self.entities_set.contains(*entity) {
+            return Err(Error::Despawned(entity));
+        }
+
+        let tick = self.tick_count;
+
+        let valid_storage = self.get_component_storage_mut::<ValidEntityComponent>();
+        let valid_component = valid_storage.get_mut(entity, tick).expect("All entites have this component");
+        valid_component.owned_components.remove(&TypeId::of::<T>());
+
+        let storage = self.get_component_storage_mut::<T>();
+
+        storage
+            .remove(entity)
+            .ok_or(Error::ComponentNotFound(entity))
+    }
+
+    /// Returns a mutable reference to the component.
+    ///
+    /// Considers it dirty since this tick.
+    pub fn get_component_mut<T: 'static>(&mut self, entity: Entity) -> Result<&mut T, Error> {
         if !self.entities_set.contains(*entity) {
             return Err(Error::Despawned(entity));
         }
@@ -111,13 +169,19 @@ impl World {
 
         let storage = self.get_component_storage_mut::<T>();
 
-        storage.get_mut(entity, tick).ok_or(Error::ComponentNotFound(entity))
+        storage
+            .get_mut(entity, tick)
+            .ok_or(Error::ComponentNotFound(entity))
     }
 
-    pub fn run_system<'w, F, A>(&'w mut self, sys: F, entity: Entity) where F: FnOnce(A::Item<'w>), A: SystemParam {
+    pub fn run_system<'w, F, A>(&'w mut self, sys: F, entity: Entity)
+    where
+        F: FnOnce(A::Item<'w>),
+        A: SystemParam,
+    {
         {
             let cell = unsafe { UnsafeWorldCell::new(self) };
-            sys(A::get(cell, entity))
+            sys(A::get(cell))
         }
     }
 }
