@@ -1,4 +1,4 @@
-use std::{any::Any, collections::HashMap};
+use std::{any::Any, collections::{HashMap, hash_map::Keys}};
 
 use crate::ecs::entity::Entity;
 
@@ -16,6 +16,8 @@ pub struct ComponentStorage<T> {
 
 pub trait UntypedComponentStorage {
     fn remove(&mut self, entity: Entity) -> bool;
+    /// Returns something that you can iterate over for entities.
+    fn entities(&self) -> Keys<Entity, usize>;
 }
 
 pub trait AnyComponentStorage: UntypedComponentStorage + Any {}
@@ -69,10 +71,18 @@ impl<T> ComponentStorage<T> {
     }
 }
 
-impl<T: 'static> UntypedComponentStorage for ComponentStorage<T> {
+impl<T> UntypedComponentStorage for ComponentStorage<T> where T: 'static {
     fn remove(&mut self, entity: Entity) -> bool {
         self.remove(entity).is_some()
     }
+
+    fn entities(&self) -> Keys<Entity, usize> {
+        self.entity_to_slot.keys()
+    }
+
+    // fn entities(&mut self) -> Keys<Entity, usize> {
+        // self.entity_to_slot.keys()
+    // }
 }
 
 impl<T: 'static> AnyComponentStorage for ComponentStorage<T> {}

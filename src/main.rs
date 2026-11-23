@@ -13,10 +13,10 @@ struct Glyph(char);
 struct PlayerTag;
 struct EnemyTag;
 
-fn check_enemy_and_player(mut lol: ecs::Query<(&Glyph, &Glyph), &Health>) {
-    let x = lol.query();
-
-    println!("{:?} {:?}", x.0, x.1);
+fn check_enemy_and_player(lol: ecs::Query<(&Glyph, &Glyph), &Health>) {
+    for x in lol.iter() {
+        println!("{:?} {:?}", x.0, x.1);
+    }
 }
 
 fn main() -> anyhow::Result<()> {

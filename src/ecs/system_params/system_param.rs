@@ -1,4 +1,4 @@
-use crate::ecs::{entity::Entity, system_params::world_ptr::UnsafeWorldCell, world::World};
+use crate::ecs::system_params::world_ptr::WorldPtr;
 
 /// A trait that any type that is a system parameter(literally placed in the function itself) must implement.
 ///
@@ -6,5 +6,5 @@ use crate::ecs::{entity::Entity, system_params::world_ptr::UnsafeWorldCell, worl
 pub trait SystemParam {
     type Item<'w>;
 
-    fn get<'w>(world: UnsafeWorldCell<'w>) -> Self::Item<'w>;
+    fn get<'w>(world: WorldPtr<'w>) -> Self::Item<'w>;
 }

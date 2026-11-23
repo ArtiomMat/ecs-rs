@@ -10,7 +10,7 @@ use crate::{
         storages::{
             ComponentStorage, UntypedComponentStorage, component_storage::AnyComponentStorage,
         },
-        system_params::{system_param::SystemParam, world_ptr::UnsafeWorldCell},
+        system_params::{system_param::SystemParam, world_ptr::WorldPtr},
     },
     mem::gen_bit_set::GenBitSet,
 };
@@ -106,6 +106,11 @@ impl World {
         type_erased.downcast_ref()
     }
 
+    pub(super) fn get_untyped_component_storage(&self, type_id: TypeId) -> Option<&dyn UntypedComponentStorage> {
+        let type_erased: &dyn UntypedComponentStorage = &**self.component_storages.get(&type_id)?;
+        Some(type_erased)
+    }
+
     pub fn insert_component<T: 'static>(
         &mut self,
         entity: Entity,
@@ -180,7 +185,7 @@ impl World {
         A: SystemParam,
     {
         {
-            let cell = unsafe { UnsafeWorldCell::new(self) };
+            let cell = WorldPtr::new(self);
             sys(A::get(cell))
         }
     }
