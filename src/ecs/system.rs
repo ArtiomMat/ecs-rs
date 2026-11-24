@@ -17,6 +17,7 @@ where
     type Result = R;
 
     unsafe fn run(&mut self, world: WorldPtr) -> Self::Result {
+        // SAFETY: Relying on validation above
         unsafe { self(A::fetch(world)) }
     }
 }
@@ -31,6 +32,7 @@ where
     type Result = R;
 
     unsafe fn run(&mut self, world: WorldPtr) -> Self::Result {
+        // SAFETY: Relying on validation above
         unsafe { self(A::fetch(world), B::fetch(world)) }
     }
 }

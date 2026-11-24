@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+# Data Structures
+fixedbitset = "0.5.9"
 # Errors
 anyhow = "1"
 thiserror = "2"

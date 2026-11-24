@@ -1,2 +1,5 @@
+pub use bit_set::BitSet;
+pub use gen_bit_set::GenBitSet;
+
 pub mod bit_set;
 pub mod gen_bit_set;
