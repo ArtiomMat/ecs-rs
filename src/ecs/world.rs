@@ -8,6 +8,7 @@ use crate::{
     ecs::{
         entity::Entity,
         storages::{AnyComponentStorage, ComponentStorage},
+        system::System,
         system_params::{system_param::SystemParam, world_ptr::WorldPtr},
     },
     mem::gen_bit_set::GenBitSet,
@@ -194,14 +195,11 @@ impl World {
             .ok_or(Error::ComponentNotFound(entity))
     }
 
-    pub fn run_system<'w, F, A>(&'w mut self, sys: F, entity: Entity)
+    pub fn run_system<'w, M, S>(&'w mut self, mut sys: S) -> S::Result
     where
-        F: FnOnce(A::Item<'w>),
-        A: SystemParam,
+        S: System<M>,
     {
-        {
-            let cell = WorldPtr::new(self);
-            sys(A::fetch(cell))
-        }
+        let ptr = WorldPtr::new(self);
+        unsafe { sys.run(ptr) }
     }
 }

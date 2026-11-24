@@ -15,9 +15,12 @@ struct PlayerTag;
 #[derive(Debug, Clone, Copy)]
 struct EnemyTag;
 
-fn check_enemy_and_player(lol: ecs::Query<(&PlayerTag, &Glyph), &Health>) {
+fn check_enemy_and_player(lol: ecs::Query<(&PlayerTag, &Glyph), &Health>, lol2: ecs::Query<(&EnemyTag, &Glyph), &Health>) {
     for x in lol.iter() {
-        println!("{:?} {:?}", x.0, x.1);
+        println!("PLAYER: {:?} {:?}", x.0, x.1);
+    }
+    for x in lol2.iter() {
+        println!("ENEMY: {:?} {:?}", x.0, x.1);
     }
 }
 
@@ -25,6 +28,7 @@ fn main() -> anyhow::Result<()> {
     let mut world = ecs::World::new();
     let e = world.spawn();
     world.insert_component(e, Health(32.0))?;
+    world.insert_component(e, EnemyTag)?;
     world.insert_component(e, Glyph('a'))?;
     let e2 = world.spawn();
     world.insert_component(e2, Health(33.0))?;
@@ -34,7 +38,7 @@ fn main() -> anyhow::Result<()> {
     world.insert_component(e3, Health(34.0))?;
     world.insert_component(e3, Glyph('c'))?;
 
-    world.run_system::<_, ecs::Query<(&PlayerTag, &Glyph), &Health>>(check_enemy_and_player, e3);
+    world.run_system(check_enemy_and_player);
 
     Ok(())
 }
