@@ -1,11 +1,8 @@
 use std::{any::TypeId, collections::hash_map::Keys};
 
 use crate::ecs::{
-    entity::{self, Entity},
-    system_params::{
-        query_filters::query_filter::QueryFilter,
-        world_ptr::{self, WorldPtr},
-    },
+    entity::Entity,
+    system_params::{query_filters::query_filter::QueryFilter, world_ptr::WorldPtr},
     world::ValidEntityComponent,
 };
 

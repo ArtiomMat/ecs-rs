@@ -11,7 +11,7 @@ where
     _phantom_front_filter: PhantomData<FrontFilter>,
     _phantom_back_filter: PhantomData<BackFilter>,
     world: WorldPtr<'w>,
-    inner: Option<Keys<'w, Entity, usize>>,
+    driver: Option<Keys<'w, Entity, usize>>,
 }
 
 impl<'w, FrontFilter, BackFilter> QueryIter<'w, FrontFilter, BackFilter>where
@@ -19,12 +19,12 @@ impl<'w, FrontFilter, BackFilter> QueryIter<'w, FrontFilter, BackFilter>where
     BackFilter: QueryFilter, {
     pub fn new(world: WorldPtr<'w>) -> Self {
         // SAFETY: No aliasing
-        let inner = unsafe { FrontFilter::driver(world) };
+        let driver = unsafe { FrontFilter::driver(world) };
         Self {
             _phantom_front_filter: PhantomData,
             _phantom_back_filter: PhantomData,
             world: world,
-            inner,
+            driver,
         }
     }
 }
@@ -37,7 +37,7 @@ where
     type Item = FrontFilter::Item<'w>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let inner = self.inner.as_mut()?;
+        let inner = self.driver.as_mut()?;
         // SAFETY: We trust that the system runner validated access to the world.
         unsafe {
             let &entity = inner.next()?;

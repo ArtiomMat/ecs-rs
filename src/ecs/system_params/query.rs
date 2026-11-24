@@ -1,8 +1,10 @@
-use std::{collections::hash_map::Keys, marker::PhantomData};
+use std::marker::PhantomData;
 
 use crate::ecs::{
-    entity::Entity, system_params::{
-        query_filters::query_filter::QueryFilter, query_iter::QueryIter, system_param::SystemParam, world_ptr::WorldPtr,
+    entity::Entity,
+    system_params::{
+        query_filters::query_filter::QueryFilter, query_iter::QueryIter, system_param::SystemParam,
+        world_ptr::WorldPtr,
     },
 };
 
@@ -27,6 +29,8 @@ where
     FrontFilter: QueryFilter,
     BackFilter: QueryFilter,
 {
+    type Item<'w> = Query<'w, FrontFilter, BackFilter>;
+
     fn fetch<'w>(world: WorldPtr<'w>) -> Self::Item<'w> {
         Query {
             _phantom_back_filter: Default::default(),
@@ -34,8 +38,6 @@ where
             world: world,
         }
     }
-
-    type Item<'w> = Query<'w, FrontFilter, BackFilter>;
 }
 
 impl<'w, FrontFilter, BackFilter> Query<'w, FrontFilter, BackFilter>

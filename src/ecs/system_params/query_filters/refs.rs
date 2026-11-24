@@ -8,6 +8,7 @@ use crate::ecs::{
     system_params::{query_filters::query_filter::QueryFilter, world_ptr::WorldPtr},
 };
 
+// TODO: Remove world.
 pub struct State<'w> {
     world: WorldPtr<'w>,
 }
