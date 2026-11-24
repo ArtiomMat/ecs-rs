@@ -1,6 +1,5 @@
 use std::{
     any::{Any, TypeId},
-    cell::{Ref, RefCell},
     collections::{HashMap, HashSet},
 };
 
@@ -9,7 +8,7 @@ use crate::{
         entity::Entity,
         storages::{AnyComponentStorage, ComponentStorage},
         system::System,
-        system_params::{system_param::SystemParam, world_ptr::WorldPtr},
+        system_params::world_ptr::WorldPtr,
     },
     mem::gen_bit_set::GenBitSet,
 };
@@ -86,41 +85,6 @@ impl World {
         }
 
         Ok(())
-    }
-
-    /// If the component storage doesn't already exist creates it. So can't error.
-    ///
-    /// Returns a reference to the component storage of components `T`.
-    pub(super) fn get_component_storage_mut<T: 'static>(&mut self) -> &mut ComponentStorage<T> {
-        let type_id = TypeId::of::<T>();
-
-        let type_erased: &mut dyn Any = &mut **self
-            .component_storages
-            .entry(type_id)
-            .or_insert(Box::new(ComponentStorage::<T>::new()));
-
-        type_erased.downcast_mut::<ComponentStorage<T>>().unwrap()
-    }
-
-    /// Returns a reference to the component storage of components `T`.
-    /// May return `None` if the component storage of components `T` doesn't exist.
-    pub(super) fn get_component_storage<T: 'static>(&self) -> Option<&ComponentStorage<T>> {
-        let type_id = TypeId::of::<T>();
-
-        let type_erased: &dyn Any = &**self.component_storages.get(&type_id)?;
-
-        type_erased.downcast_ref()
-    }
-
-    /// Returns a reference to the component storage of components `T`.
-    /// The form however of the return value is `AnyComponentStorage` which
-    /// sidesteps generics at the cost of less freedom.
-    pub(super) fn get_any_component_storage(
-        &self,
-        type_id: TypeId,
-    ) -> Option<&dyn AnyComponentStorage> {
-        let type_erased: &dyn AnyComponentStorage = &**self.component_storages.get(&type_id)?;
-        Some(type_erased)
     }
 
     pub fn insert_component<T: 'static>(
@@ -201,5 +165,40 @@ impl World {
     {
         let ptr = WorldPtr::new(self);
         unsafe { sys.run(ptr) }
+    }
+
+    /// If the component storage doesn't already exist creates it. So can't error.
+    ///
+    /// Returns a reference to the component storage of components `T`.
+    pub(super) fn get_component_storage_mut<T: 'static>(&mut self) -> &mut ComponentStorage<T> {
+        let type_id = TypeId::of::<T>();
+
+        let type_erased: &mut dyn Any = &mut **self
+            .component_storages
+            .entry(type_id)
+            .or_insert(Box::new(ComponentStorage::<T>::new()));
+
+        type_erased.downcast_mut::<ComponentStorage<T>>().unwrap()
+    }
+
+    /// Returns a reference to the component storage of components `T`.
+    /// May return `None` if the component storage of components `T` doesn't exist.
+    pub(super) fn get_component_storage<T: 'static>(&self) -> Option<&ComponentStorage<T>> {
+        let type_id = TypeId::of::<T>();
+
+        let type_erased: &dyn Any = &**self.component_storages.get(&type_id)?;
+
+        type_erased.downcast_ref()
+    }
+
+    /// Returns a reference to the component storage of components `T`.
+    /// The form however of the return value is `AnyComponentStorage` which
+    /// sidesteps generics at the cost of less freedom.
+    pub(super) fn get_any_component_storage(
+        &self,
+        type_id: TypeId,
+    ) -> Option<&dyn AnyComponentStorage> {
+        let type_erased: &dyn AnyComponentStorage = &**self.component_storages.get(&type_id)?;
+        Some(type_erased)
     }
 }
