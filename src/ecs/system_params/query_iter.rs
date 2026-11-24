@@ -11,7 +11,7 @@ where
     _phantom_front_filter: PhantomData<FrontFilter>,
     _phantom_back_filter: PhantomData<BackFilter>,
     world: WorldPtr<'w>,
-    inner: Keys<'w, Entity, usize>,
+    inner: Option<Keys<'w, Entity, usize>>,
 }
 
 impl<'w, FrontFilter, BackFilter> QueryIter<'w, FrontFilter, BackFilter>where
@@ -37,21 +37,20 @@ where
     type Item = FrontFilter::Item<'w>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        let inner = self.inner.as_mut()?;
         // SAFETY: We trust that the system runner validated access to the world.
         unsafe {
-            let entity = *self.inner.next()?;
-
-            let a = {
-                let mut state = FrontFilter::create_state(self.world);
-                FrontFilter::get_for_entity(&mut state, self.world, entity)
-            };
+            let &entity = inner.next()?;
 
             _ = {
                 let mut state = BackFilter::create_state(self.world);
-                BackFilter::get_for_entity(&mut state, self.world, entity);
+                BackFilter::filter_entity(&mut state, self.world, entity);
             };
 
-            Some(a)
+            {
+                let mut state = FrontFilter::create_state(self.world);
+                FrontFilter::filter_entity(&mut state, self.world, entity)
+            }
         }
     }
 }

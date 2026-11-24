@@ -10,10 +10,12 @@ struct Transform {
 #[derive(Debug, Clone, Copy)]
 struct Glyph(char);
 
+#[derive(Debug, Clone, Copy)]
 struct PlayerTag;
+#[derive(Debug, Clone, Copy)]
 struct EnemyTag;
 
-fn check_enemy_and_player(lol: ecs::Query<(&Glyph, &Glyph), &Health>) {
+fn check_enemy_and_player(lol: ecs::Query<(&PlayerTag, &Glyph), &Health>) {
     for x in lol.iter() {
         println!("{:?} {:?}", x.0, x.1);
     }
@@ -27,11 +29,12 @@ fn main() -> anyhow::Result<()> {
     let e2 = world.spawn();
     world.insert_component(e2, Health(33.0))?;
     world.insert_component(e2, Glyph('b'))?;
+    world.insert_component(e2, PlayerTag)?;
     let e3 = world.spawn();
     world.insert_component(e3, Health(34.0))?;
     world.insert_component(e3, Glyph('c'))?;
 
-    world.run_system::<_, ecs::Query<(&Glyph, &Glyph), &Health>>(check_enemy_and_player, e3);
+    world.run_system::<_, ecs::Query<(&PlayerTag, &Glyph), &Health>>(check_enemy_and_player, e3);
 
     Ok(())
 }

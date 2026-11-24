@@ -20,32 +20,31 @@ where
         State {}
     }
 
-    unsafe fn get_for_entity<'w>(
+    unsafe fn filter_entity<'w>(
         state: &mut Self::State<'w>,
         world: WorldPtr<'w>,
         entity: Entity,
-    ) -> Self::Item<'w> {
+    ) -> Option<Self::Item<'w>> {
         unsafe {
             let a = {
                 let mut state = A::create_state(world);
-                A::get_for_entity(&mut state, world, entity)
+                A::filter_entity(&mut state, world, entity)?
             };
             let b = {
                 let mut state = B::create_state(world);
-                B::get_for_entity(&mut state, world, entity)
+                B::filter_entity(&mut state, world, entity)?
             };
-            (a, b)
+            Some((a, b))
         }
     }
 
-    unsafe fn driver<'w>(world: WorldPtr<'w>) -> Keys<'w, Entity, usize> {
+    unsafe fn driver<'w>(world: WorldPtr<'w>) -> Option<Keys<'w, Entity, usize>> {
         // SAFETY: We create the slice one by one it is safe to call `driver()` sequentially.
-        let min_i = unsafe { [A::driver(world).len(), B::driver(world).len()] }
+        let min_i = unsafe { [A::driver(world), B::driver(world)] }
             .iter()
             .enumerate()
-            .min_by_key(|&(_, v)| v)
-            .map(|(i, _)| i)
-            .expect("The slice is not empty");
+            .min_by_key(|&(_index, driver)| driver.as_ref().map(|d| d.len()))
+            .map(|(index, _driver)| index)?;
 
         // SAFETY: We call `driver()` once per pattern.
         unsafe {

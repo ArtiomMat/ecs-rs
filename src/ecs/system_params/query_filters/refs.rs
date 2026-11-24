@@ -1,4 +1,7 @@
-use std::{any::TypeId, collections::hash_map};
+use std::{
+    any::TypeId,
+    collections::hash_map::{self, Keys},
+};
 
 use crate::ecs::{
     entity::Entity,
@@ -21,22 +24,21 @@ where
         State { world: world }
     }
 
-    unsafe fn get_for_entity<'w>(
+    unsafe fn filter_entity<'w>(
         state: &mut Self::State<'w>,
         world: WorldPtr<'w>,
         entity: Entity,
-    ) -> Self::Item<'w> {
-        unsafe { state.world.get().get_component::<T>(entity).unwrap() }
+    ) -> Option<Self::Item<'w>> {
+        unsafe { state.world.get().get_component::<T>(entity).ok() }
     }
 
-    unsafe fn driver<'w>(world: WorldPtr<'w>) -> hash_map::Keys<'w, Entity, usize> {
+    unsafe fn driver<'w>(world: WorldPtr<'w>) -> Option<Keys<'w, Entity, usize>> {
         // SAFETY: No aliasing
         unsafe {
             world
                 .get()
-                .get_untyped_component_storage(TypeId::of::<T>())
-                .expect("REMOVE FOR OPTION<T>")
-                .entities()
+                .get_any_component_storage(TypeId::of::<T>())
+                .map(|x| x.entities())
         }
     }
 }
@@ -53,28 +55,21 @@ where
         State { world: world }
     }
 
-    unsafe fn get_for_entity<'w>(
+    unsafe fn filter_entity<'w>(
         state: &mut Self::State<'w>,
         world: WorldPtr<'w>,
         entity: Entity,
-    ) -> Self::Item<'w> {
-        unsafe {
-            state
-                .world
-                .get_mut()
-                .get_component_mut::<T>(entity)
-                .expect("REMOVE AND PUT OPTION<T>")
-        }
+    ) -> Option<Self::Item<'w>> {
+        unsafe { state.world.get_mut().get_component_mut::<T>(entity).ok() }
     }
 
-    unsafe fn driver<'w>(world: WorldPtr<'w>) -> hash_map::Keys<'w, Entity, usize> {
+    unsafe fn driver<'w>(world: WorldPtr<'w>) -> Option<Keys<'w, Entity, usize>> {
         // SAFETY: No aliasing
         unsafe {
             world
                 .get()
-                .get_untyped_component_storage(TypeId::of::<T>())
-                .expect("REMOVE FOR OPTION<T>")
-                .entities()
+                .get_any_component_storage(TypeId::of::<T>())
+                .map(|x| x.entities())
         }
     }
 }

@@ -21,11 +21,11 @@ pub trait QueryFilter {
     /// The returned value immutably references `world`, you must
     /// not mutably reference `world` again until the returned
     /// value is unused.
-    unsafe fn driver<'w>(world: WorldPtr<'w>) -> Keys<'w, Entity, usize>;
+    unsafe fn driver<'w>(world: WorldPtr<'w>) -> Option<Keys<'w, Entity, usize>>;
 
-    unsafe fn get_for_entity<'w>(
+    unsafe fn filter_entity<'w>(
         state: &mut Self::State<'w>,
         world: WorldPtr<'w>,
         entity: Entity,
-    ) -> Self::Item<'w>;
+    ) -> Option<Self::Item<'w>>;
 }

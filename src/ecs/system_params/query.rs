@@ -27,7 +27,7 @@ where
     FrontFilter: QueryFilter,
     BackFilter: QueryFilter,
 {
-    fn get<'w>(world: WorldPtr<'w>) -> Self::Item<'w> {
+    fn fetch<'w>(world: WorldPtr<'w>) -> Self::Item<'w> {
         Query {
             _phantom_back_filter: Default::default(),
             _phantom_front_filter: Default::default(),
@@ -43,23 +43,18 @@ where
     FrontFilter: QueryFilter,
     BackFilter: QueryFilter,
 {
-    pub fn query(&mut self) -> FrontFilter::Item<'w> {
+    pub fn get(&mut self, entity: Entity) -> Option<FrontFilter::Item<'w>> {
         // SAFETY: We trust that the system runner validated access to the world.
         unsafe {
-            for &entity in FrontFilter::driver(self.world) {
-                let a = {
-                    let mut state = FrontFilter::create_state(self.world);
-                    FrontFilter::get_for_entity(&mut state, self.world, entity)
-                };
-                {
-                    let mut state = BackFilter::create_state(self.world);
-                    _ = BackFilter::get_for_entity(&mut state, self.world, entity);
-                };
-                return a;
+            _ = {
+                let mut state = BackFilter::create_state(self.world);
+                _ = BackFilter::filter_entity(&mut state, self.world, entity);
+            };
+            {
+                let mut state = FrontFilter::create_state(self.world);
+                FrontFilter::filter_entity(&mut state, self.world, entity)
             }
         }
-
-        todo!()
     }
 
     pub fn iter(&self) -> QueryIter<'w, FrontFilter, BackFilter> {

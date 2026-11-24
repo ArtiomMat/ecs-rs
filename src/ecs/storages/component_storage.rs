@@ -10,17 +10,17 @@ pub struct Slot<T> {
 }
 
 pub struct ComponentStorage<T> {
-    pub entity_to_slot: HashMap<Entity, usize>,
+    entity_to_slot: HashMap<Entity, usize>,
     slots: Vec<Slot<T>>,
 }
 
-pub trait UntypedComponentStorage {
+pub trait AnyComponentStorage: Any {
+    /// Returns `true` upons successful removal from the entity.
     fn remove(&mut self, entity: Entity) -> bool;
-    /// Returns something that you can iterate over for entities.
-    fn entities(&self) -> Keys<Entity, usize>;
-}
 
-pub trait AnyComponentStorage: UntypedComponentStorage + Any {}
+    /// Returns something that you can iterate over for entities.
+    fn entities<'a>(&'a self) -> Keys<'a, Entity, usize>;
+}
 
 impl<T> ComponentStorage<T> {
     pub fn new() -> Self {
@@ -71,18 +71,12 @@ impl<T> ComponentStorage<T> {
     }
 }
 
-impl<T> UntypedComponentStorage for ComponentStorage<T> where T: 'static {
+impl<T> AnyComponentStorage for ComponentStorage<T> where T: 'static {
     fn remove(&mut self, entity: Entity) -> bool {
         self.remove(entity).is_some()
     }
 
-    fn entities(&self) -> Keys<Entity, usize> {
+    fn entities<'a>(&'a self) -> Keys<'a, Entity, usize> {
         self.entity_to_slot.keys()
     }
-
-    // fn entities(&mut self) -> Keys<Entity, usize> {
-        // self.entity_to_slot.keys()
-    // }
 }
-
-impl<T: 'static> AnyComponentStorage for ComponentStorage<T> {}

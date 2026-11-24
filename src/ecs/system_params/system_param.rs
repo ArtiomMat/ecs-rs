@@ -6,5 +6,5 @@ use crate::ecs::system_params::world_ptr::WorldPtr;
 pub trait SystemParam {
     type Item<'w>;
 
-    fn get<'w>(world: WorldPtr<'w>) -> Self::Item<'w>;
+    fn fetch<'w>(world: WorldPtr<'w>) -> Self::Item<'w>;
 }

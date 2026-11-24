@@ -7,9 +7,7 @@ use std::{
 use crate::{
     ecs::{
         entity::Entity,
-        storages::{
-            ComponentStorage, UntypedComponentStorage, component_storage::AnyComponentStorage,
-        },
+        storages::{AnyComponentStorage, ComponentStorage},
         system_params::{system_param::SystemParam, world_ptr::WorldPtr},
     },
     mem::gen_bit_set::GenBitSet,
@@ -23,7 +21,11 @@ pub enum Error {
     ComponentNotFound(Entity),
 }
 
-struct ValidEntityComponent {
+/// All spawned entities have this component.
+///
+/// It is a crucial part of cleanup of despawned entities.
+/// Without it the world cannot remove components.
+pub(super) struct ValidEntityComponent {
     owned_components: HashSet<TypeId>,
 }
 
@@ -73,9 +75,12 @@ impl World {
         let valid_component = self
             .remove_component::<ValidEntityComponent>(entity)
             .expect("Exists in entities_set");
+
         for type_id in valid_component.owned_components.iter() {
-            let storage: &mut dyn UntypedComponentStorage =
-                &mut **self.component_storages.get_mut(type_id).unwrap();
+            let storage = self
+                .component_storages
+                .get_mut(type_id)
+                .expect("Registered as owned");
             storage.remove(entity);
         }
 
@@ -106,8 +111,14 @@ impl World {
         type_erased.downcast_ref()
     }
 
-    pub(super) fn get_untyped_component_storage(&self, type_id: TypeId) -> Option<&dyn UntypedComponentStorage> {
-        let type_erased: &dyn UntypedComponentStorage = &**self.component_storages.get(&type_id)?;
+    /// Returns a reference to the component storage of components `T`.
+    /// The form however of the return value is `AnyComponentStorage` which
+    /// sidesteps generics at the cost of less freedom.
+    pub(super) fn get_any_component_storage(
+        &self,
+        type_id: TypeId,
+    ) -> Option<&dyn AnyComponentStorage> {
+        let type_erased: &dyn AnyComponentStorage = &**self.component_storages.get(&type_id)?;
         Some(type_erased)
     }
 
@@ -126,7 +137,9 @@ impl World {
         storage.insert(entity, component, tick);
 
         let valid_storage = self.get_component_storage_mut::<ValidEntityComponent>();
-        let valid_component = valid_storage.get_mut(entity, tick).expect("All entites have this component");
+        let valid_component = valid_storage
+            .get_mut(entity, tick)
+            .expect("All entites have this component");
         valid_component.owned_components.insert(TypeId::of::<T>());
 
         Ok(())
@@ -152,7 +165,9 @@ impl World {
         let tick = self.tick_count;
 
         let valid_storage = self.get_component_storage_mut::<ValidEntityComponent>();
-        let valid_component = valid_storage.get_mut(entity, tick).expect("All entites have this component");
+        let valid_component = valid_storage
+            .get_mut(entity, tick)
+            .expect("All entites have this component");
         valid_component.owned_components.remove(&TypeId::of::<T>());
 
         let storage = self.get_component_storage_mut::<T>();
@@ -186,7 +201,7 @@ impl World {
     {
         {
             let cell = WorldPtr::new(self);
-            sys(A::get(cell))
+            sys(A::fetch(cell))
         }
     }
 }
