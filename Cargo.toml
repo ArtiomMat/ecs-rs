@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 # Data Structures
+smallvec = "1.16.6"
 fixedbitset = "0.5.9"
 # Errors
 anyhow = "1"

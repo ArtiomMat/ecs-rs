@@ -64,8 +64,8 @@ impl GenBitSet {
         self.generations.resize(size, 0);
     }
 
-    pub fn len(&self) -> usize {
-        self.bits.len()
+    pub fn capacity(&self) -> usize {
+        self.bits.capacity()
     }
 
     pub fn contains(&self, bit: GenBit) -> bool {
@@ -145,8 +145,8 @@ mod tests {
     fn new() {
         let set = GenBitSet::new(SIZE);
 
-        assert_eq!(set.len(), SIZE);
-        assert_eq!(set.bits.count_ones(..), 0, "no bits should be set");
+        assert_eq!(set.capacity(), SIZE);
+        assert_eq!(set.bits.ones().count(), 0, "no bits should be set");
         assert_eq!(set.generations.len(), SIZE);
         assert!(set.generations.iter().all(|&g| g == 0), "generations should start at 0");
     }
@@ -188,7 +188,7 @@ mod tests {
         let new_size = SIZE * 2;
         set.resize(new_size);
 
-        assert_eq!(set.len(), new_size);
+        assert_eq!(set.capacity(), new_size);
         assert_eq!(set.generations.len(), new_size);
         assert!(set.generations[SIZE..].iter().all(|&g| g == 0));
 
@@ -213,7 +213,7 @@ mod tests {
         let bit = set.acquire().unwrap();
 
         let index = set.downgrade(bit).expect("live bit downgrades");
-        assert!(index < set.len());
+        assert!(index < set.capacity());
         assert!(set.bits.contains(index));
 
         // Downgrading is non-destructive and repeatable.
@@ -272,7 +272,7 @@ mod tests {
     #[test]
     fn zero_sized_set_cannot_acquire() {
         let mut set = GenBitSet::new(0);
-        assert_eq!(set.len(), 0);
+        assert_eq!(set.capacity(), 0);
         assert!(set.acquire().is_none());
     }
 

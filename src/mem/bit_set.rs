@@ -1,3 +1,5 @@
-use fixedbitset::FixedBitSet;
+// use fixedbitset::FixedBitSet;
 
-pub type BitSet = FixedBitSet;
+use crate::mem::BitSet2;
+
+pub type BitSet = BitSet2;

@@ -49,7 +49,7 @@ impl World {
             .entities_set
             .acquire()
             .or_else(|| {
-                self.entities_set.resize(self.entities_set.len() * 2);
+                self.entities_set.resize(self.entities_set.capacity() * 2);
                 self.entities_set.acquire()
             })
             .unwrap();
