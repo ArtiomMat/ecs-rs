@@ -18,6 +18,10 @@ pub struct BitSet2 {
 }
 
 impl BitSet2 {
+    // TODO: Test the invariant that writing past capacity is impossible, and anything past capacity is always 0.
+    //       MultiBits relies on the fact that when some sets are smaller we first assume that the rest of the last
+    //       block(if capacity is not a multiple of Block::BITS) is 0 and not
+
     pub fn new() -> Self {
         Self {
             blocks: Vec::new(),
@@ -41,6 +45,7 @@ impl BitSet2 {
     }
 
     pub fn grow(&mut self, new_capacity: usize) {
+        // FIXME: If resized down turn stale bits into 0 to adhere to invariant.
         let blocks_size = bits_to_blocks(new_capacity);
         self.blocks.resize(blocks_size, 0);
         self.capacity = new_capacity
@@ -127,14 +132,16 @@ pub struct MultiBitsPart<'a> {
     op: Op,
 }
 
+/// # Behavior
+/// - If sets of different sizes are pushed the biggest set is selected, smaller sets are
 pub struct MultiBits<'a> {
     parts: SmallVec<[MultiBitsPart<'a>; 8]>,
     /// Bit index shared for all bitsets
     bit_index: usize,
     /// The value of the current block cached after operations
     current_block: Block,
-    /// The minimum capacity from all the sets
-    min_capacity: usize,
+    /// The maximum capacity from all the sets
+    max_capacity: usize,
 }
 
 impl<'a> MultiBits<'a> {
@@ -147,7 +154,7 @@ impl<'a> MultiBits<'a> {
             }],
             bit_index: 0,
             current_block: 0,
-            min_capacity: set.capacity,
+            max_capacity: set.capacity,
         }
     }
 
@@ -162,8 +169,8 @@ impl<'a> MultiBits<'a> {
     }
 
     pub fn push(&mut self, set: &'a BitSet2, op: Op) {
-        if set.capacity < self.min_capacity {
-            self.min_capacity = set.capacity;
+        if self.max_capacity < set.capacity {
+            self.max_capacity = set.capacity;
         }
         self.parts.push(MultiBitsPart { set, op });
     }
@@ -174,7 +181,9 @@ impl<'a> MultiBits<'a> {
         self.current_block = !0;
 
         for &MultiBitsPart { set, op } in self.parts.iter() {
-            let part_block = set.blocks[block_index];
+            // If the block doesn't exist in this set we default to 0, we assume all bits outside capacity are 0.
+            let part_block = set.blocks.get(block_index).cloned().unwrap_or(0);
+
             match op {
                 Op::Union => self.current_block |= part_block,
                 Op::Difference => self.current_block &= !part_block,
@@ -189,7 +198,7 @@ impl<'a> MultiBits<'a> {
         // As long as self.block_after_ops turned up 0 we can skip it and keep going
         while self.current_block == 0 {
             self.bit_index += Block::BITS as usize;
-            if self.bit_index >= self.min_capacity {
+            if self.bit_index >= self.max_capacity {
                 return None;
             }
 
@@ -205,8 +214,7 @@ impl Iterator for MultiBits<'_> {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            let bit_index = self.bit_index;
-            if bit_index >= self.min_capacity {
+            if self.bit_index >= self.max_capacity {
                 return None;
             }
 
@@ -216,10 +224,11 @@ impl Iterator for MultiBits<'_> {
                 self.skip_while_zero()?;
             }
 
+            let old_bit_index = self.bit_index;
             self.bit_index += 1;
 
-            if (self.current_block >> (bit_index % Block::BITS as usize)) & 1 == 1 {
-                return Some(bit_index);
+            if (self.current_block >> (old_bit_index % Block::BITS as usize)) & 1 == 1 {
+                return Some(old_bit_index);
             }
         }
     }
@@ -230,7 +239,7 @@ mod tests {
     use super::*;
 
     #[test]
-    #[should_panic(expected = "Bit 105 out of bounds 102")]
+    #[should_panic = "Bit 105 out of bounds 102"]
     fn insert_out_of_bounds() {
         let mut bitset = BitSet2::with_capacity(102);
         bitset.insert(0);
@@ -242,6 +251,39 @@ mod tests {
         bitset.insert(6);
         bitset.insert(101);
         bitset.insert(105);
+    }
+
+    /// Invariant
+    #[test]
+    #[ignore = "Not important yet, because our usage is to grow up the sets usually"]
+    fn grow_down_zeroes_out_stale_bits() {
+        let mut bitset = BitSet2::with_capacity(Block::BITS as usize + 5);
+        bitset.insert(0);
+
+        // This one is OK
+        bitset.insert(Block::BITS as usize - 2);
+        bitset.insert(Block::BITS as usize - 1);
+        bitset.insert(Block::BITS as usize + 0);
+        bitset.insert(Block::BITS as usize + 1);
+
+        // Insert a bit that will get invalidated
+        bitset.insert(Block::BITS as usize + 2);
+        bitset.insert(Block::BITS as usize + 3);
+        bitset.insert(Block::BITS as usize + 4);
+
+        // Grow down to remove the previously inserted bit
+        bitset.grow(Block::BITS as usize + 2);
+
+        // Ensure the bits that are OK remain OK
+        assert!(bitset.contains(Block::BITS as usize - 2));
+        assert!(bitset.contains(Block::BITS as usize - 1));
+        assert!(bitset.contains(Block::BITS as usize + 0));
+        assert!(bitset.contains(Block::BITS as usize - 1));
+
+        // Ensure that bit we set is now zero
+        assert_eq!((bitset.blocks.last().unwrap() >> 2) & 1, 0);
+        assert_eq!((bitset.blocks.last().unwrap() >> 3) & 1, 0);
+        assert_eq!((bitset.blocks.last().unwrap() >> 4) & 1, 0);
     }
 
     #[test]
@@ -452,7 +494,7 @@ mod tests {
     }
 
     #[test]
-    fn multi_bits_does_not_leak_past_capacity() {
+    fn multi_bits_bigger_set_included() {
         let mut base = BitSet2::with_capacity(70);
         base.insert(69);
 
@@ -463,6 +505,36 @@ mod tests {
         iter.push(&wide, Op::Union);
 
         let collected = iter.collect::<Vec<usize>>();
-        assert_eq!(collected, [69]);
+        assert_eq!(collected, [69, 70]);
+    }
+
+    /// Tests when you insert around and at Block::BITS
+    #[test]
+    fn ones_at_boundries() {
+        const BOUNDRY: usize = Block::BITS as usize;
+
+        // Around and at BOUNDRY
+        let mut base = BitSet2::with_capacity(70);
+        base.insert(BOUNDRY - 1);
+        base.insert(BOUNDRY);
+        base.insert(BOUNDRY + 1);
+        let iter = base.ones();
+        let collected = iter.collect::<Vec<usize>>();
+        assert_eq!(collected, [BOUNDRY - 1, BOUNDRY, BOUNDRY + 1]);
+
+        // Only around BOUNDRY
+        let mut base = BitSet2::with_capacity(70);
+        base.insert(BOUNDRY - 1);
+        base.insert(BOUNDRY + 1);
+        let iter = base.ones();
+        let collected = iter.collect::<Vec<usize>>();
+        assert_eq!(collected, [63, BOUNDRY + 1]);
+
+        // Only at BOUNDRY
+        let mut base = BitSet2::with_capacity(70);
+        base.insert(BOUNDRY);
+        let iter = base.ones();
+        let collected = iter.collect::<Vec<usize>>();
+        assert_eq!(collected, [BOUNDRY]);
     }
 }
