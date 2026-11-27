@@ -1,10 +1,10 @@
 use std::{any::TypeId, collections::hash_map::Keys};
 
-use crate::ecs::{
+use crate::{ecs::{
     entity::Entity,
     system_params::{query_filters::query_filter::QueryFilter, world_ptr::WorldPtr},
     world::ValidEntityComponent,
-};
+}, mem::bit_set::MultiBits};
 
 impl<T> QueryFilter for Option<T>
 where
@@ -38,5 +38,9 @@ where
         // Option always succeeds, it is up to T to decide the inner option.
 
         Some(unsafe { T::filter_entity(state, world, entity) })
+    }
+
+    unsafe fn push_bitset<'w>(_: WorldPtr<'w>, _: &mut MultiBits<'w>) {
+        // Nothing is equivalent to all intersecting all 1 set
     }
 }

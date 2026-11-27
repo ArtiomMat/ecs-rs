@@ -15,7 +15,7 @@ struct PlayerTag;
 #[derive(Debug, Clone, Copy)]
 struct EnemyTag;
 
-fn check_enemy_and_player(lol: ecs::Query<(&PlayerTag, &Glyph), ecs::With<Health>>, lol2: ecs::Query<(&EnemyTag, &Glyph), ecs::With<Health>>) {
+fn check_enemy_and_player(lol: ecs::Query<(&PlayerTag, &Glyph)>, lol2: ecs::Query<(&EnemyTag, &Glyph)>) {
     for x in lol.iter() {
         println!("PLAYER: {:?} {:?}", x.0, x.1);
     }

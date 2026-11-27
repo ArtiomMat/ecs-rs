@@ -1,23 +1,24 @@
 use std::collections::hash_map::Keys;
 
-use crate::ecs::{
-    entity::Entity,
-    system_params::{query_filters::query_filter::QueryFilter, world_ptr::WorldPtr},
+use crate::{
+    ecs::{
+        entity::Entity,
+        system_params::{query_filters::query_filter::QueryFilter, world_ptr::WorldPtr},
+    },
+    mem::bit_set::MultiBits,
 };
-
-pub struct State {}
 
 impl<A, B> QueryFilter for (A, B)
 where
     A: QueryFilter,
     B: QueryFilter,
 {
-    type State<'w> = State;
+    type State<'w> = ();
 
     type Item<'w> = (A::Item<'w>, B::Item<'w>);
 
     unsafe fn create_state<'w>(world: WorldPtr<'w>) -> Self::State<'w> {
-        State {}
+        ()
     }
 
     unsafe fn filter_entity<'w>(
@@ -53,6 +54,13 @@ where
                 1 => B::driver(world),
                 _ => unreachable!(),
             }
+        }
+    }
+
+    unsafe fn push_bitset<'w>(world: WorldPtr<'w>, bits: &mut MultiBits<'w>) {
+        unsafe {
+            A::push_bitset(world, bits);
+            B::push_bitset(world, bits);
         }
     }
 }

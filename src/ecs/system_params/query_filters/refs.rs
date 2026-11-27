@@ -1,11 +1,10 @@
-use std::{
-    any::TypeId,
-    collections::hash_map::{self, Keys},
-};
+use std::{any::TypeId, collections::hash_map::Keys};
 
-use crate::ecs::{
-    entity::Entity,
-    system_params::{query_filters::query_filter::QueryFilter, world_ptr::WorldPtr},
+use crate::{
+    ecs::{
+        entity::Entity,
+        system_params::{query_filters::query_filter::QueryFilter, world_ptr::WorldPtr},
+    }, mem::bit_set::{MultiBits, Op},
 };
 
 // TODO: Remove world.
@@ -39,7 +38,14 @@ where
             world
                 .get()
                 .get_any_component_storage(TypeId::of::<T>())
-                .map(|x| x.entities())
+                .map(|s| s.entities())
+        }
+    }
+
+    unsafe fn push_bitset<'w>(world: WorldPtr<'w>, bits: &mut MultiBits<'w>) {
+        // SAFETY: No aliasing
+        if let Some(storage) = unsafe { world.get().get_any_component_storage(TypeId::of::<T>()) } {
+            bits.push(storage.bitset(), Op::Intersection);
         }
     }
 }
@@ -71,6 +77,13 @@ where
                 .get()
                 .get_any_component_storage(TypeId::of::<T>())
                 .map(|x| x.entities())
+        }
+    }
+
+    unsafe fn push_bitset<'w>(world: WorldPtr<'w>, bits: &mut MultiBits<'w>) {
+        // SAFETY: No aliasing
+        if let Some(storage) = unsafe { world.get().get_any_component_storage(TypeId::of::<T>()) } {
+            bits.push(storage.bitset(), Op::Intersection);
         }
     }
 }

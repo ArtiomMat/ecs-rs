@@ -1,6 +1,6 @@
 use smallvec::{SmallVec, smallvec};
 
-use crate::mem::bit_set::Op::Intersection;
+use crate::mem::bit_set::Op::{Difference, Intersection};
 
 pub type Block = u64;
 
@@ -65,22 +65,32 @@ impl BitSet {
         self.capacity = new_capacity
     }
 
+    /// # Safety
+    /// `bit` must be in bounds, i.e. below the value of `self.capacity()`.
+    pub unsafe fn set_unchecked(&mut self, bit: usize, value: bool) {
+        // SAFETY: Guaranteed by caller to be in bounds.
+        let block = unsafe { self.blocks.get_unchecked_mut(bit / block_bits()) };
+
+        let mask = 1 << (bit % block_bits());
+        if value {
+            *block |= mask;
+        } else {
+            *block &= !mask;
+        }
+    }
+
     /// # Panics
     /// If the `bit` is out of bounds.
     pub fn set(&mut self, bit: usize, value: bool) {
         assert!(
-            self.capacity > bit,
+            bit < self.capacity,
             "Bit {} out of bounds {}",
             bit,
             self.capacity
         );
 
-        let mask = 1 << (bit % block_bits());
-        if value {
-            self.blocks[bit / block_bits()] |= mask;
-        } else {
-            self.blocks[bit / block_bits()] &= !mask;
-        }
+        // SAFETY: Asserted invariant.
+        unsafe  {self.set_unchecked(bit, value);}
     }
 
     /// Sets `bit` to 1.
@@ -92,11 +102,14 @@ impl BitSet {
     }
 
     /// Sets `bit` to 0.
-    ///
-    /// # Panics
-    /// If the `bit` is out of bounds.
+    /// Always does nothing if out of bounds.
     pub fn remove(&mut self, bit: usize) {
-        self.set(bit, false)
+        if bit >= self.capacity {
+            return;
+        }
+
+        // SAFETY: Checked in bounds.
+        unsafe { self.set_unchecked(bit, false) }
     }
 
     /// Returns the bit value as a boolean.
@@ -105,12 +118,29 @@ impl BitSet {
         if bit >= self.capacity {
             return false;
         }
-        let block_value = 1 << (bit % block_bits());
-        self.blocks[bit / block_bits()] & block_value != 0
+
+        // SAFETY: Checked in bounds.
+        let block = unsafe { self.blocks.get_unchecked(bit / block_bits()) };
+        let mask = 1 << (bit % block_bits());
+        block & mask != 0
     }
 
     pub fn capacity(&self) -> usize {
         self.capacity
+    }
+
+    /// Grows so that `bit` is in bounds if necessary.
+    pub fn set_growing(&mut self, bit: usize, value: bool) {
+        if bit >= self.capacity {
+            self.grow(bit + 1);
+        }
+
+        // SAFETY: Grew capacity so bit fits.
+        unsafe { self.set_unchecked(bit, value) }
+    }
+
+    pub fn insert_growing(&mut self, bit: usize) {
+        self.set_growing(bit, true);
     }
 
     pub fn zeroes<'a>(&'a self) -> MultiBits<'a> {
@@ -163,26 +193,41 @@ pub struct MultiBits<'a> {
 }
 
 impl<'a> MultiBits<'a> {
-    /// `op` happens on a virtual all-ones set.
-    pub fn new(set: &'a BitSet, op: Op) -> Self {
+    pub fn new() -> Self {
         Self {
-            parts: smallvec![MultiBitsPart { set, op }],
+            parts: SmallVec::new(),
             bit_index: 0,
             current_block: 0,
-            max_capacity: set.capacity,
+            max_capacity: 0,
         }
     }
 
+    /// Returns how many sets were pushed
+    pub fn pushed_count(&self) -> usize {
+        self.parts.len()
+    }
+
+    /// Returns the capacity of the biggest set pushed or zero if no sets were pushed.
+    pub fn max_capacity(&self) -> usize {
+        self.max_capacity
+    }
+
+
     /// As if you are iterating over the ones in the set.
     pub fn ones(set: &'a BitSet) -> Self {
-        Self::new(set, Op::Intersection)
+        let mut bits = Self::new();
+        bits.push(set, Intersection);
+        bits
     }
 
     /// As if you are iterating over the zeroes in the set.
     pub fn zeroes(set: &'a BitSet) -> Self {
-        Self::new(set, Op::Difference)
+        let mut bits = Self::new();
+        bits.push(set, Difference);
+        bits
     }
 
+    /// If this is the first then `op` happens on a virtual all-ones set.
     pub fn push(&mut self, set: &'a BitSet, op: Op) {
         if self.max_capacity < set.capacity {
             self.max_capacity = set.capacity;
@@ -190,6 +235,7 @@ impl<'a> MultiBits<'a> {
         self.parts.push(MultiBitsPart { set, op });
     }
 
+    // If `self.bit_index` is out of range for any of the sets it is considered 0, we do not panic.
     fn recalculate_current_block(&mut self) {
         let block_index = self.bit_index / Block::BITS as usize;
 
@@ -299,6 +345,25 @@ mod tests {
         assert_eq!((bitset.blocks.last().unwrap() >> 2) & 1, 0);
         assert_eq!((bitset.blocks.last().unwrap() >> 3) & 1, 0);
         assert_eq!((bitset.blocks.last().unwrap() >> 4) & 1, 0);
+    }
+
+    #[test]
+    fn insert_growing() {
+        let mut bitset = BitSet::with_capacity(10);
+        bitset.insert(0);
+        bitset.insert_growing(66);
+        bitset.insert_growing(204);
+
+        assert!(bitset.contains(0));
+        assert!(bitset.contains(66));
+        assert!(bitset.contains(204));
+    }
+
+    #[test]
+    fn remove_out_of_bounds_allowed() {
+        let mut bitset = BitSet::with_capacity(10);
+        bitset.remove(0);
+        bitset.remove(66);
     }
 
     #[test]

@@ -1,10 +1,10 @@
 use std::{any::TypeId, collections::hash_map::Keys};
 
-use crate::ecs::{
+use crate::{ecs::{
     entity::Entity,
     system_params::{query_filters::query_filter::QueryFilter, world_ptr::WorldPtr},
     world::ValidEntityComponent,
-};
+}, mem::bit_set::MultiBits};
 
 impl QueryFilter for Entity
 {
@@ -12,7 +12,7 @@ impl QueryFilter for Entity
 
     type Item<'w> = Entity;
 
-    unsafe fn create_state<'w>(world: WorldPtr<'w>) -> Self::State<'w> {
+    unsafe fn create_state<'w>(_: WorldPtr<'w>) -> Self::State<'w> {
         ()
     }
 
@@ -29,10 +29,14 @@ impl QueryFilter for Entity
     }
 
     unsafe fn filter_entity<'w>(
-        state: &mut Self::State<'w>,
-        world: WorldPtr<'w>,
+        _: &mut Self::State<'w>,
+        _: WorldPtr<'w>,
         entity: Entity,
     ) -> Option<Self::Item<'w>> {
         Some(entity)
+    }
+
+    unsafe fn push_bitset<'w>(_: WorldPtr<'w>, _: &mut MultiBits<'w>) {
+        // Nothing is equivalent to all intersecting all 1 set
     }
 }

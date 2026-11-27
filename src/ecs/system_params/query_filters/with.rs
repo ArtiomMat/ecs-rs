@@ -1,10 +1,11 @@
 use std::{any::TypeId, collections::hash_map::Keys, marker::PhantomData};
 
-use crate::ecs::{
+use crate::{ecs::{
     entity::Entity,
     system_params::{query_filters::query_filter::QueryFilter, world_ptr::WorldPtr},
-};
+}, mem::bit_set::{MultiBits, Op}};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct With<T>(PhantomData<T>);
 
 impl<T> QueryFilter for With<T>
@@ -38,6 +39,13 @@ where
                 .get()
                 .get_any_component_storage(TypeId::of::<T>())
                 .map(|x| x.entities())
+        }
+    }
+
+    unsafe fn push_bitset<'w>(world: WorldPtr<'w>, bits: &mut MultiBits<'w>) {
+        // SAFETY: No aliasing
+        if let Some(storage) = unsafe { world.get().get_any_component_storage(TypeId::of::<T>()) } {
+            bits.push(storage.bitset(), Op::Intersection);
         }
     }
 }

@@ -3,7 +3,7 @@ use std::{
     collections::{HashMap, hash_map::Keys},
 };
 
-use crate::ecs::entity::Entity;
+use crate::{ecs::entity::Entity, mem::BitSet};
 
 pub struct Slot<T> {
     component: T,
@@ -14,6 +14,7 @@ pub struct Slot<T> {
 
 pub struct ComponentStorage<T> {
     entity_to_slot: HashMap<Entity, usize>,
+    bitset: BitSet,
     slots: Vec<Slot<T>>,
 }
 
@@ -23,12 +24,15 @@ pub trait AnyComponentStorage: Any {
 
     /// Returns something that you can iterate over for entities.
     fn entities<'a>(&'a self) -> Keys<'a, Entity, usize>;
+
+    fn bitset<'a>(&'a self) -> &'a BitSet;
 }
 
 impl<T> ComponentStorage<T> {
     pub fn new() -> Self {
         Self {
             entity_to_slot: HashMap::new(),
+            bitset: BitSet::new(),
             slots: Vec::new(),
         }
     }
@@ -46,6 +50,7 @@ impl<T> ComponentStorage<T> {
                 write_tick: None,
             });
             self.entity_to_slot.insert(entity, i);
+            self.bitset.insert_growing(entity.index() as usize);
         }
     }
 
@@ -62,6 +67,7 @@ impl<T> ComponentStorage<T> {
 
     pub fn remove(&mut self, entity: Entity) -> Option<T> {
         let i = self.entity_to_slot.remove(&entity)?;
+        self.bitset.remove(entity.index() as usize);
 
         // If the the removed is not last we notify entity_to_slot of the upcoming swap
         let swapped_slot = self.slots.last().expect("entity_to_slot was not empty");
@@ -84,6 +90,10 @@ where
 
     fn entities<'a>(&'a self) -> Keys<'a, Entity, usize> {
         self.entity_to_slot.keys()
+    }
+
+    fn bitset<'a>(&'a self) -> &'a BitSet {
+        &self.bitset
     }
 }
 
@@ -159,6 +169,7 @@ mod tests {
 
         assert_eq!(storage.slots.len(), 2);
         assert_eq!(storage.entity_to_slot.len(), 2);
+        assert_eq!(storage.bitset.ones().count(), 2);
         assert!(!storage.entity_to_slot.contains_key(&e[1]));
 
         assert_eq!(storage.slots[0].entity, e[0]);
@@ -184,6 +195,7 @@ mod tests {
         assert_eq!(storage.remove(e[0]), Some("Hello0".to_string()));
 
         assert_eq!(storage.slots.len(), 2);
+        assert_eq!(storage.bitset.ones().count(), 2);
         assert_eq!(storage.slots[0].entity, e[2]);
         assert_eq!(storage.slots[1].entity, e[1]);
         assert_eq!(storage.entity_to_slot[&e[2]], 0);
@@ -203,6 +215,7 @@ mod tests {
         assert_eq!(storage.remove(e[2]), Some("Hello2".to_string()));
 
         assert_eq!(storage.slots.len(), 2);
+        assert_eq!(storage.bitset.ones().count(), 2);
         assert_eq!(storage.entity_to_slot.len(), 2);
         assert!(!storage.entity_to_slot.contains_key(&e[2]));
         assert_eq!(storage.entity_to_slot[&e[0]], 0);
@@ -230,6 +243,7 @@ mod tests {
 
         assert_eq!(storage.remove(e[1]), None);
         assert_eq!(storage.slots.len(), 1);
+        assert_eq!(storage.bitset.ones().count(), 1);
         assert_eq!(storage.get(e[0]), Some(&"Hello0".to_string()));
     }
 
@@ -270,8 +284,10 @@ mod tests {
         assert_eq!(storage.slots[1].insert_tick, 1);
 
         // Other slots are untouched
+        assert!(storage.bitset.contains(0));
         assert_eq!(storage.slots[0].component, "Hello0");
         assert_eq!(storage.slots[0].write_tick, None);
+        assert!(storage.bitset.contains(1));
         assert_eq!(storage.slots[2].component, "Hello2");
         assert_eq!(storage.slots[2].write_tick, None);
 

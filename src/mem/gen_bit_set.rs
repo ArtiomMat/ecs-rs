@@ -5,9 +5,7 @@ use crate::mem::BitSet;
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Bit at index {index} was already released with generation diff {generation_diff}")]
-    BitReleased { index: usize, generation_diff: i32 },
-    #[error("Bit has been poisoned")]
-    BitPoisoned,
+    BitReleased { index: u32, generation_diff: i32 },
 }
 
 /// Manages a bit-set with generations tied to each bit.
@@ -15,36 +13,19 @@ pub enum Error {
 /// Useful when you need handles.
 pub struct GenBitSet {
     bits: BitSet,
-    generations: Vec<u32>
+    generations: Vec<u32>,
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct GenBit {
-    index_plus_one: Option<NonZero<u32>>,
+    index: u32,
     generation: u32,
 }
 
 impl GenBit {
-    fn new(index: usize, generation: u32) -> Option<Self> {
-        let Ok(index) = (index + 1).try_into() else {
-            return None;
-        };
-        let Some(index) = NonZero::<u32>::new(index) else {
-            return None;
-        };
-
-        Some(Self {
-            index_plus_one: Some(index),
-            generation: generation,
-        })
-    }
-
-    pub fn poison(&mut self) {
-        self.index_plus_one = None;
-    }
-
-    fn index(&self) -> Option<usize> {
-        self.index_plus_one.map(|x| x.get() as usize - 1)
+    /// Returns the index without the generation.
+    pub fn index(&self) -> u32 {
+        self.index
     }
 }
 
@@ -53,10 +34,7 @@ impl GenBitSet {
         let bits = BitSet::with_capacity(size);
         let generations = vec![0; size];
 
-        Self {
-            bits,
-            generations
-        }
+        Self { bits, generations }
     }
 
     pub fn resize(&mut self, size: usize) {
@@ -80,30 +58,30 @@ impl GenBitSet {
 
         let generation = self.generations[index];
 
-        GenBit::new(index, generation)
+        Some(GenBit {
+            index: index as u32,
+            generation,
+        })
     }
 
     pub fn release(&mut self, bit: GenBit) -> Result<(), Error> {
-        let index = self.downgrade(bit)?;
+        let index = self.downgrade(bit)? as usize;
         self.bits.set(index, false);
         self.generations[index] += 1;
         Ok(())
     }
 
-    pub fn downgrade(&self, bit: GenBit) -> Result<usize, Error> {
-        if let Some(index) = bit.index() {
-            let contains_bit = self.bits.contains(index);
-            let generation_diff = self.generations[index] as i64 - bit.generation as i64;
-            if contains_bit && generation_diff == 0 {
-                Ok(index)
-            } else {
-                Err(Error::BitReleased {
-                    index,
-                    generation_diff: generation_diff as i32,
-                })
-            }
+    pub fn downgrade(&self, bit: GenBit) -> Result<u32, Error> {
+        let index = bit.index;
+        let contains_bit = self.bits.contains(index as usize);
+        let generation_diff = self.generations[index as usize] as i64 - bit.generation as i64;
+        if contains_bit && generation_diff == 0 {
+            Ok(index)
         } else {
-            Err(Error::BitPoisoned)
+            Err(Error::BitReleased {
+                index,
+                generation_diff: generation_diff as i32,
+            })
         }
     }
 
@@ -113,21 +91,13 @@ impl GenBitSet {
     /// exists precisely to recover the full bit.
     pub fn upgrade(&self, index: usize) -> Option<GenBit> {
         if self.bits.contains(index) {
-            Some(GenBit::new(index.into(), self.generations[index]).unwrap())
+            Some(GenBit {
+                index: index as u32,
+                generation: self.generations[index],
+            })
         } else {
             None
         }
-    }
-
-    pub fn downgrade_or_poison(&self, bit: &mut GenBit) -> Result<usize, Error> {
-        self.downgrade(*bit).inspect_err(|_| bit.poison())
-    }
-
-    pub fn release_or_poison(&mut self, bit: &mut GenBit) -> Result<(), Error> {
-        let index = self.downgrade_or_poison(bit)?;
-        self.bits.set(index, false);
-        self.generations[index] += 1;
-        Ok(())
     }
 }
 
@@ -148,7 +118,10 @@ mod tests {
         assert_eq!(set.capacity(), SIZE);
         assert_eq!(set.bits.ones().count(), 0, "no bits should be set");
         assert_eq!(set.generations.len(), SIZE);
-        assert!(set.generations.iter().all(|&g| g == 0), "generations should start at 0");
+        assert!(
+            set.generations.iter().all(|&g| g == 0),
+            "generations should start at 0"
+        );
     }
 
     #[test]
@@ -170,7 +143,7 @@ mod tests {
         let mut set = set();
 
         let bit = set.acquire().unwrap();
-        let index = set.downgrade(bit).unwrap();
+        let index = set.downgrade(bit).unwrap() as usize;
         assert_eq!(set.generations[index], 0);
 
         set.release(bit).expect("releasing a live bit works");
@@ -203,7 +176,7 @@ mod tests {
         assert_eq!(bits.len(), new_size);
         for b in bits {
             assert!(set.contains(b));
-            assert!(set.downgrade(b).unwrap() < new_size);
+            assert!(set.downgrade(b).unwrap() < new_size as u32);
         }
     }
 
@@ -213,8 +186,8 @@ mod tests {
         let bit = set.acquire().unwrap();
 
         let index = set.downgrade(bit).expect("live bit downgrades");
-        assert!(index < set.capacity());
-        assert!(set.bits.contains(index));
+        assert!(index < set.capacity() as u32);
+        assert!(set.bits.contains(index as usize));
 
         // Downgrading is non-destructive and repeatable.
         assert_eq!(set.downgrade(bit).unwrap(), index);
@@ -229,7 +202,10 @@ mod tests {
         set.release(bit).unwrap();
 
         match set.downgrade(bit) {
-            Err(Error::BitReleased { index: i, generation_diff }) => {
+            Err(Error::BitReleased {
+                index: i,
+                generation_diff,
+            }) => {
                 assert_eq!(i, index);
                 assert_eq!(generation_diff, 1);
             }
@@ -241,7 +217,7 @@ mod tests {
     fn upgrade() {
         let mut set = set();
         let bit = set.acquire().unwrap();
-        let index = set.downgrade(bit).unwrap();
+        let index = set.downgrade(bit).unwrap() as usize;
 
         let upgraded = set.upgrade(index).expect("live index upgrades");
         assert_eq!(upgraded, bit);
@@ -252,7 +228,7 @@ mod tests {
     fn upgrade_released() {
         let mut set = set();
         let bit = set.acquire().unwrap();
-        let index = set.downgrade(bit).unwrap();
+        let index = set.downgrade(bit).unwrap() as usize;
         set.release(bit).unwrap();
 
         assert!(set.upgrade(index).is_none());
@@ -279,7 +255,7 @@ mod tests {
     #[test]
     fn acquired_bits_are_unique() {
         let mut set = set();
-        let mut indices: Vec<usize> = (0..SIZE)
+        let mut indices: Vec<u32> = (0..SIZE)
             .map(|_| {
                 let b = set.acquire().unwrap();
                 set.downgrade(b).unwrap()
@@ -313,9 +289,15 @@ mod tests {
         // Same slot, different generation.
         assert_ne!(old, new);
         assert!(set.contains(new));
-        assert!(!set.contains(old), "ABA problem: stale handle must not be valid");
+        assert!(
+            !set.contains(old),
+            "ABA problem: stale handle must not be valid"
+        );
         assert!(matches!(set.release(old), Err(Error::BitReleased { .. })));
-        assert!(set.contains(new), "stale release must not affect the new owner");
+        assert!(
+            set.contains(new),
+            "stale release must not affect the new owner"
+        );
     }
 
     #[test]
@@ -339,65 +321,6 @@ mod tests {
     }
 
     #[test]
-    fn poisoned_bit_is_rejected() {
-        let mut set = set();
-        let mut bit = set.acquire().unwrap();
-        bit.poison();
-
-        assert!(!set.contains(bit));
-        assert!(matches!(set.downgrade(bit), Err(Error::BitPoisoned)));
-        assert!(matches!(set.release(bit), Err(Error::BitPoisoned)));
-    }
-
-    #[test]
-    fn downgrade_or_poison_keeps_valid_bit_intact() {
-        let mut set = set();
-        let mut bit = set.acquire().unwrap();
-        let copy = bit;
-
-        let index = set.downgrade_or_poison(&mut bit).unwrap();
-        assert_eq!(index, set.downgrade(copy).unwrap());
-        assert_eq!(bit, copy, "valid bit must not be poisoned");
-    }
-
-    #[test]
-    fn downgrade_or_poison_poisons_stale_bit() {
-        let mut set = set();
-        let mut bit = set.acquire().unwrap();
-        set.release(bit).unwrap();
-
-        assert!(matches!(
-            set.downgrade_or_poison(&mut bit),
-            Err(Error::BitReleased { .. })
-        ));
-        // Now poisoned: subsequent errors are BitPoisoned.
-        assert!(matches!(set.downgrade(bit), Err(Error::BitPoisoned)));
-    }
-
-    #[test]
-    fn release_or_poison_releases_valid_bit() {
-        let mut set = set();
-        let mut bit = set.acquire().unwrap();
-        let copy = bit;
-        let index = set.downgrade(copy).unwrap();
-
-        set.release_or_poison(&mut bit).unwrap();
-
-        assert!(!set.contains(copy));
-        assert_eq!(set.generations[index], 1);
-    }
-
-    #[test]
-    fn release_or_poison_poisons_stale_bit() {
-        let mut set = set();
-        let mut bit = set.acquire().unwrap();
-        set.release(bit).unwrap();
-
-        assert!(set.release_or_poison(&mut bit).is_err());
-        assert!(matches!(set.downgrade(bit), Err(Error::BitPoisoned)));
-    }
-
-    #[test]
     fn upgrade_after_reacquire_yields_new_generation() {
         let mut set = GenBitSet::new(1);
         let old = set.acquire().unwrap();
@@ -405,7 +328,7 @@ mod tests {
         set.release(old).unwrap();
         let new = set.acquire().unwrap();
 
-        let upgraded = set.upgrade(index).unwrap();
+        let upgraded = set.upgrade(index as usize).unwrap();
         assert_eq!(upgraded, new);
         assert_ne!(upgraded, old);
     }

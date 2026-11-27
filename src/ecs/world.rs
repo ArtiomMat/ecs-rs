@@ -36,12 +36,16 @@ pub struct World {
 }
 
 impl World {
+    /// The returned world always contains the [`ValidEntityComponent`] storage.
     pub fn new() -> Self {
-        Self {
+        let mut world = Self {
             entities_set: GenBitSet::new(8),
             component_storages: HashMap::new(),
             tick_count: 0,
-        }
+        };
+        // Some logic relies on this always existing
+        world.get_component_storage_mut::<ValidEntityComponent>();
+        world
     }
 
     pub fn spawn(&mut self) -> Entity {
@@ -200,5 +204,10 @@ impl World {
     ) -> Option<&dyn AnyComponentStorage> {
         let type_erased: &dyn AnyComponentStorage = &**self.component_storages.get(&type_id)?;
         Some(type_erased)
+    }
+
+    /// Returns `None` if the index is out of range or belongs to an entity that no longer exists.
+    pub(super) fn index_to_entity(&self, index: usize) -> Option<Entity> {
+        self.entities_set.upgrade(index).map(|gen_bit| Entity(gen_bit))
     }
 }
